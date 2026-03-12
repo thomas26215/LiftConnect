@@ -2,13 +2,14 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyAkf3IMm5azp9gkmJvYFSVrIkRJjDiwWOU",
-  authDomain:        "liftconnect-fca04.firebaseapp.com",
-  projectId:         "liftconnect-fca04",
-  storageBucket:     "liftconnect-fca04.firebasestorage.app",
-  messagingSenderId: "422285465460",
-  appId:             "1:422285465460:web:105336f2c61818229abe21"
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID
 }
 
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
+
