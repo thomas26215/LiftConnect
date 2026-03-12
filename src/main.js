@@ -1,5 +1,14 @@
-import { createApp } from 'vue'
-import App from './App.vue'
+import { createApp }   from 'vue'
+import { watchEffect } from 'vue'
+import { authReady }   from '@/stores/auth'
+import App    from './App.vue'
 import router from './router/index.js'
 
-createApp(App).use(router).mount('#app')
+const app = createApp(App).use(router)
+
+const stop = watchEffect(() => {
+  if (authReady.value) {
+    app.mount('#app')
+    stop()
+  }
+})

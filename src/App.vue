@@ -3,9 +3,9 @@
   logo-href="/"
   :links="navLinks"
   :back-link="isLegalPage ? { href: '/', label: 'Retour à l\'accueil' } : null"
-  :show-login="!isLegalPage"
+  :show-login="!isAuthPage"
   :login-href="r('login')"
-  :show-cta="!isLegalPage"
+  :show-cta="isLandingPage"
   cta-label="Télécharger"
   cta-href="#download"
   :show-scroll-bar="!isLegalPage"
@@ -24,9 +24,11 @@ const router = useRouter()
 // Noms des routes considérées comme "pages légales"
 const LEGAL_ROUTE_NAMES = ['privacy', 'legal', 'delete-account']
 const LANGING_ROUTE_NAMES = ['home']
+const AUTH_ROUTE_NAMES = ['login', 'register']
 
 const isLegalPage = computed(() => LEGAL_ROUTE_NAMES.includes(route.name))
 const isLandingPage = computed(() => LANGING_ROUTE_NAMES.includes(route.name))
+const isAuthPage = computed(() => AUTH_ROUTE_NAMES.includes(route.name))
 
 // Résout un nom de route en chemin string pour AppNavBar
 function r(name) {
@@ -36,7 +38,6 @@ function r(name) {
 const navLinks = computed(() => {
   if (isLegalPage.value) {
     return [
-      { href: r('home'),           label: 'Accueil' },
       { href: r('privacy'),        label: 'Confidentialité' },
       { href: r('legal'),          label: 'Mentions légales' },
       { href: r('delete-account'), label: 'Supprimer mon compte' },
@@ -46,6 +47,12 @@ const navLinks = computed(() => {
       return [
         { href: '#features',  label: 'Fonctionnalités' },
         { href: '#download',  label: 'Télécharger' },
+      ]
+    }
+  if (isAuthPage.value) {
+      return [
+      { href: r('login'),           label: 'Se connecter' },
+      { href: r('register'),        label: 'Créer un compte' },
       ]
     }
 })

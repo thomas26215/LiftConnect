@@ -36,18 +36,17 @@
 
       <!-- Store buttons -->
       <div class="stores" ref="storesRef">
-        <a
+        <component
           v-for="store in stores"
           :key="store.label"
-          :href="store.link"
-  class="store-btn"
-  :class="{ hovered: hovered === store.label }"
-  @mouseenter="hovered = store.label"
-  @mouseleave="hovered = null"
-  target="_blank"
-  rel="noopener noreferrer"
->
-
+          :is="store.soon ? 'div' : 'a'"
+          :href="store.soon ? undefined : store.link"
+          class="store-btn"
+          :class="[{ hovered: hovered === store.label && !store.soon }, { 'store-btn--web': store.soon }]"
+          @mouseenter="!store.soon && (hovered = store.label)"
+          @mouseleave="hovered = null"
+          v-bind="store.soon ? {} : { target: '_blank', rel: 'noopener noreferrer' }"
+        >
           <div class="shimmer-layer"></div>
           <div class="store-icon-wrap">
             <component :is="store.svgIcon" class="store-svg" />
@@ -56,8 +55,9 @@
             <small>{{ store.small }}</small>
             <strong>{{ store.label }}</strong>
           </div>
-          <span class="store-arrow">↗</span>
-        </a>
+          <span v-if="!store.soon" class="store-arrow">↗</span>
+          <span v-else class="store-badge">Bientôt</span>
+        </component>
       </div>
 
       <!-- Stats -->
@@ -80,6 +80,7 @@
 
 <script setup>
 import { ref, onMounted, defineComponent, h } from 'vue'
+import { RouterLink } from 'vue-router'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -105,6 +106,10 @@ const IconAndroid = defineComponent({ render: () => h('svg', svgBase, [
   h('path', { d: 'M17.523 15.341a.61.61 0 0 1-.608.61.61.61 0 0 1-.609-.61V10.88a.61.61 0 0 1 .609-.61.61.61 0 0 1 .608.61v4.461zm-10.437 0a.61.61 0 0 1-.609.61.61.61 0 0 1-.608-.61V10.88a.61.61 0 0 1 .608-.61.61.61 0 0 1 .609.61v4.461zM6.44 8.637l-.96-1.664a.203.203 0 0 1 .074-.277.202.202 0 0 1 .277.074l.973 1.683A6.226 6.226 0 0 1 12 7.448c1.014 0 1.97.243 2.816.673l.013-.022.96-1.661a.203.203 0 0 1 .277-.074.203.203 0 0 1 .074.277l-.96 1.664A6.25 6.25 0 0 1 18.26 14H5.74A6.25 6.25 0 0 1 6.44 8.637zM9.995 11.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5zm4.01 0a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5zM5.24 15.5A1.24 1.24 0 0 0 6.48 16.74v2.65a.87.87 0 0 0 1.74 0v-2.65h3.56v2.65a.87.87 0 0 0 1.74 0v-2.65h3.56v2.65a.87.87 0 0 0 1.74 0v-2.65a1.24 1.24 0 0 0 1.24-1.24V8.86H5.24V15.5z' }),
 ]) })
 
+const IconWeb = defineComponent({ render: () => h('svg', svgBase, [
+  h('path', { d: 'M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z' }),
+]) })
+
 const stores = [
   {
     label: 'App Store',
@@ -117,6 +122,14 @@ const stores = [
     small: 'Disponible sur',
     svgIcon: IconAndroid,
     link: 'https://play.google.com/store/search?q=liftconnect&c=apps&hl=fr',
+  },
+  {
+    label: 'Version Web',
+    small: 'Prochainement sur',
+    svgIcon: IconWeb,
+    link: null,
+    internal: false,
+    soon: true,
   },
 ]
 
@@ -436,5 +449,35 @@ h2 em::after {
   .store-btn { min-width: 280px; }
   .stats-row { gap: 8px; }
   .stat-card { min-width: 120px; padding: 18px 16px; }
+}
+
+/* ─── Web button variant ─── */
+.store-btn--web {
+  border-color: rgba(186,242,216,0.25);
+  background: rgba(186,242,216,0.04);
+}
+.store-btn--web:hover {
+  border-color: rgba(186,242,216,0.5);
+  background: rgba(186,242,216,0.12);
+  box-shadow: 0 16px 40px rgba(186,242,216,0.2);
+}
+.store-btn--web .store-icon-wrap {
+  background: rgba(186,242,216,0.12);
+  border-color: rgba(186,242,216,0.22);
+}
+.store-btn--web { cursor: default; }
+.store-btn--web:hover {
+  transform: none;
+  box-shadow: none;
+}
+.store-badge {
+  font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(186,242,216,0.7);
+  background: rgba(186,242,216,0.08);
+  border: 1px solid rgba(186,242,216,0.2);
+  border-radius: 20px;
+  padding: 3px 8px;
+  white-space: nowrap;
 }
 </style>
