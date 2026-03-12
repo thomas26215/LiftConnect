@@ -1,4 +1,3 @@
-text
 <template>
   <div class="delete-page">
 

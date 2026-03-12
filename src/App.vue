@@ -1,9 +1,42 @@
 <template>
+  <AppNavBar
+    logo-href="/"
+    :links="navLinks"
+    :back-link="isLegalPage ? { href: '/', label: 'Retour à l\'accueil' } : null"
+    :show-login="!isLegalPage"
+    :show-cta="!isLegalPage"
+    cta-label="Télécharger"
+    cta-href="#download"
+    :show-scroll-bar="!isLegalPage"
+  />
   <RouterView />
 </template>
 
 <script setup>
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import AppNavBar from './core/components/NavBar.vue'
+
+const route = useRoute()
+
+const LEGAL_ROUTES = ['/privacy', '/legal', '/delete-account']
+const isLegalPage = computed(() => LEGAL_ROUTES.includes(route.path))
+
+const navLinks = computed(() => {
+  if (isLegalPage.value) {
+    return [
+      { href: '/',               label: 'Accueil' },
+      { href: '/privacy',        label: 'Confidentialité' },
+      { href: '/legal',          label: 'Mentions légales' },
+      { href: '/delete-account', label: 'Supprimer mon compte' },
+    ]
+  }
+  return [
+    { href: '#features',  label: 'Fonctionnalités' },
+    { href: '#community', label: 'Communauté' },
+    { href: '#download',  label: 'Télécharger' },
+  ]
+})
 </script>
 
 <style>
@@ -63,3 +96,4 @@ body::before {
   color: #fff;
 }
 </style>
+

@@ -1,19 +1,6 @@
 <template>
   <div class="privacy-page">
 
-    <!-- Navbar : logo = retour accueil + liens légaux et compte -->
-    <AppNavBar
-  logo-href="/"
-  :links="[
-    { href: '/privacy',        label: 'Confidentialité' },
-    { href: '/legal',          label: 'Mentions légales' },
-    { href: '/delete-account', label: 'Supprimer mon compte' },
-  ]"
-  :back-link="{ href: '/', label: 'Retour à l\'accueil' }"
-  :show-login="false"
-  :show-cta="false"
-  :show-scroll-bar="false"
-/>
 
 
 
@@ -151,7 +138,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import gsap from 'gsap'
-import AppNavBar from '../core/components/NavBar.vue'
 
 const heroRef = ref(null)
 const contentRef = ref(null)

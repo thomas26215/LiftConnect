@@ -45,7 +45,7 @@
       <!-- Right -->
       <div class="nav-right">
 
-        <!-- Bouton retour (pages secondaires) -->
+        <!-- Bouton retour -->
         <component
           v-if="backLink"
           :is="isAnchor(backLink.href) ? 'a' : RouterLink"
@@ -120,14 +120,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { RouterLink } from 'vue-router'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 const props = defineProps({
   logoHref:      { type: String,  default: '/' },
   links:         { type: Array,   default: () => [] },
-  backLink:      { type: Object,  default: null },    // { href, label }
+  backLink:      { type: Object,  default: null },
   showLogin:     { type: Boolean, default: false },
   loginHref:     { type: String,  default: '#' },
   showCta:       { type: Boolean, default: false },
@@ -139,13 +139,26 @@ const props = defineProps({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const isAnchor = href => href.startsWith('#')
 
+// ── Route ─────────────────────────────────────────────────────────────────────
+const route = useRoute()
+
+// Trouve l'index du lien qui correspond à la route courante
+function getActiveIndex() {
+  // Correspondance exacte d'abord, puis fallback sur startsWith pour les sous-routes
+  let idx = props.links.findIndex(l => !isAnchor(l.href) && l.href === route.path)
+  if (idx === -1) {
+    idx = props.links.findIndex(l => !isAnchor(l.href) && route.path.startsWith(l.href) && l.href !== '/')
+  }
+  return idx !== -1 ? idx : 0
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 const scrolled       = ref(false)
 const scrollProgress = ref(0)
 const menuOpen       = ref(false)
 const mounted        = ref(false)
 const logoHover      = ref(false)
-const activeLink     = ref(props.links[0]?.href ?? '')
+const activeLink     = ref(props.links[getActiveIndex()]?.href ?? '')
 const pillVisible    = ref(false)
 const pillLeft       = ref(0)
 const pillWidth      = ref(0)
@@ -153,7 +166,18 @@ const ctaClicked     = ref(false)
 const particles      = ref([])
 const linksRef       = ref(null)
 
-// ── Mobile items (dérivés des props) ─────────────────────────────────────────
+// ── Sync activeLink + pill avec la route ──────────────────────────────────────
+watch(
+  () => route.path,
+  () => {
+    if (!props.links.length) return
+    const idx = getActiveIndex()
+    activeLink.value = props.links[idx]?.href ?? ''
+    nextTick(() => updatePill(idx))
+  }
+)
+
+// ── Mobile items ──────────────────────────────────────────────────────────────
 const mobileItems = computed(() => {
   const items = props.links.map(l => ({ ...l, cls: 'mobile-link' }))
   if (props.backLink)  items.push({ href: props.backLink.href, label: props.backLink.label, cls: 'mobile-link' })
@@ -220,7 +244,11 @@ onMounted(() => {
   })
   setTimeout(() => {
     mounted.value = true
-    if (props.links.length) nextTick(() => updatePill(0))
+    if (props.links.length) {
+      const idx = getActiveIndex()
+      activeLink.value = props.links[idx]?.href ?? ''
+      nextTick(() => updatePill(idx))
+    }
   }, 50)
 })
 </script>
@@ -419,3 +447,4 @@ nav.scrolled .nav-inner {
   .burger { display: flex; }
 }
 </style>
+

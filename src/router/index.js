@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LandingPage from '../pages/landingPage/index.vue'
-import PrivacyPage from '../pages/privacy.vue'
-import LegalPage from '../pages/legal.vue'
-import DeleteAccountPage from '../pages/delete-account.vue'
+import PrivacyPage from '../pages/legal/privacy.vue'
+import LegalPage from '../pages/legal/legal.vue'
+import DeleteAccountPage from '../pages/legal/delete-account.vue'
 
 const router = createRouter({
   history: createWebHistory(),
