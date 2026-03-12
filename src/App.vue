@@ -1,41 +1,53 @@
 <template>
   <AppNavBar
-    logo-href="/"
-    :links="navLinks"
-    :back-link="isLegalPage ? { href: '/', label: 'Retour à l\'accueil' } : null"
-    :show-login="!isLegalPage"
-    :show-cta="!isLegalPage"
-    cta-label="Télécharger"
-    cta-href="#download"
-    :show-scroll-bar="!isLegalPage"
-  />
+  logo-href="/"
+  :links="navLinks"
+  :back-link="isLegalPage ? { href: '/', label: 'Retour à l\'accueil' } : null"
+  :show-login="!isLegalPage"
+  :login-href="r('login')"
+  :show-cta="!isLegalPage"
+  cta-label="Télécharger"
+  cta-href="#download"
+  :show-scroll-bar="!isLegalPage"
+/>
   <RouterView />
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppNavBar from './core/components/NavBar.vue'
 
-const route = useRoute()
+const route  = useRoute()
+const router = useRouter()
 
-const LEGAL_ROUTES = ['/privacy', '/legal', '/delete-account']
-const isLegalPage = computed(() => LEGAL_ROUTES.includes(route.path))
+// Noms des routes considérées comme "pages légales"
+const LEGAL_ROUTE_NAMES = ['privacy', 'legal', 'delete-account']
+const LANGING_ROUTE_NAMES = ['home']
+
+const isLegalPage = computed(() => LEGAL_ROUTE_NAMES.includes(route.name))
+const isLandingPage = computed(() => LANGING_ROUTE_NAMES.includes(route.name))
+
+// Résout un nom de route en chemin string pour AppNavBar
+function r(name) {
+  return router.resolve({ name }).path
+}
 
 const navLinks = computed(() => {
   if (isLegalPage.value) {
     return [
-      { href: '/',               label: 'Accueil' },
-      { href: '/privacy',        label: 'Confidentialité' },
-      { href: '/legal',          label: 'Mentions légales' },
-      { href: '/delete-account', label: 'Supprimer mon compte' },
+      { href: r('home'),           label: 'Accueil' },
+      { href: r('privacy'),        label: 'Confidentialité' },
+      { href: r('legal'),          label: 'Mentions légales' },
+      { href: r('delete-account'), label: 'Supprimer mon compte' },
     ]
   }
-  return [
-    { href: '#features',  label: 'Fonctionnalités' },
-    { href: '#community', label: 'Communauté' },
-    { href: '#download',  label: 'Télécharger' },
-  ]
+  if (isLandingPage.value) {
+      return [
+        { href: '#features',  label: 'Fonctionnalités' },
+        { href: '#download',  label: 'Télécharger' },
+      ]
+    }
 })
 </script>
 
@@ -96,4 +108,3 @@ body::before {
   color: #fff;
 }
 </style>
-

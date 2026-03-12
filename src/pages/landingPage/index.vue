@@ -1,6 +1,5 @@
 <template>
   <div class="app">
-    <NavBar />
     <HeroSection />
     <LogoStrip />
     <FeaturesSection />
@@ -10,7 +9,6 @@
 </template>
 
 <script setup>
-import NavBar from './NavBar.vue'
 import HeroSection from './HeroSection.vue'
 import LogoStrip from './LogoStrip.vue'
 import FeaturesSection from './FeaturesSection.vue'
