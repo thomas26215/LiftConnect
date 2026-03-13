@@ -75,37 +75,51 @@
           {{ backLink.label }}
         </component>
 
-        <!-- Login -->
-        <component
-          v-if="showLogin"
-          :is="isAnchor(loginHref) ? 'a' : RouterLink"
-          :href="isAnchor(loginHref) ? loginHref : undefined"
-          :to="isAnchor(loginHref) ? undefined : loginHref"
-          class="login"
-          :style="{ '--i': links.length }"
-          :class="{ mounted }"
-        >
-          Se connecter
-        </component>
+        <!-- User connecté -->
+        <template v-if="currentUser">
+          <div class="user-chip" :class="{ mounted }">
+            <div class="user-avatar">
+              <img v-if="currentUser.photoURL" :src="currentUser.photoURL" alt="avatar" />
+              <span v-else>{{ currentUser.displayName?.charAt(0)?.toUpperCase() ?? '?' }}</span>
+            </div>
+            <span class="user-name">{{ currentUser.displayName ?? currentUser.email }}</span>
+          </div>
+          <button class="logout-btn" :class="{ mounted }" @click="handleLogout">
+            Déconnexion
+          </button>
+        </template>
 
-        <!-- CTA -->
-        <component
-          v-if="showCta"
-          :is="isAnchor(ctaHref) ? 'a' : RouterLink"
-          :href="isAnchor(ctaHref) ? ctaHref : undefined"
-          :to="isAnchor(ctaHref) ? undefined : ctaHref"
-          class="cta"
-          :style="{ '--i': links.length + (showLogin ? 1 : 0) }"
-          :class="{ mounted, clicked: ctaClicked }"
-          @click="onCtaClick"
-        >
-          <span class="cta-inner">
-            <span class="cta-text">{{ ctaLabel }}</span>
-            <span class="cta-arrow">&#8599;</span>
-          </span>
-          <span class="shimmer"></span>
-          <span v-for="p in particles" :key="p.id" class="particle" :style="p.style"></span>
-        </component>
+        <!-- Non connecté -->
+        <template v-else>
+          <component
+            v-if="showLogin"
+            :is="isAnchor(loginHref) ? 'a' : RouterLink"
+            :href="isAnchor(loginHref) ? loginHref : undefined"
+            :to="isAnchor(loginHref) ? undefined : loginHref"
+            class="login"
+            :style="{ '--i': links.length }"
+            :class="{ mounted }"
+          >
+            Se connecter
+          </component>
+          <component
+            v-if="showCta"
+            :is="isAnchor(ctaHref) ? 'a' : RouterLink"
+            :href="isAnchor(ctaHref) ? ctaHref : undefined"
+            :to="isAnchor(ctaHref) ? undefined : ctaHref"
+            class="cta"
+            :style="{ '--i': links.length + (showLogin ? 1 : 0) }"
+            :class="{ mounted, clicked: ctaClicked }"
+            @click="onCtaClick"
+          >
+            <span class="cta-inner">
+              <span class="cta-text">{{ ctaLabel }}</span>
+              <span class="cta-arrow">&#8599;</span>
+            </span>
+            <span class="shimmer"></span>
+            <span v-for="p in particles" :key="p.id" class="particle" :style="p.style"></span>
+          </component>
+        </template>
 
         <!-- Burger -->
         <button class="burger" @click="toggleMenu" :aria-expanded="menuOpen">
@@ -137,8 +151,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { RouterLink } from 'vue-router'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { signOut } from 'firebase/auth'
+import { auth } from '@/firebase'
+import { currentUser } from '@/stores/auth'
 
 const props = defineProps({
   logoHref:      { type: String,  default: '/' },
@@ -156,18 +173,39 @@ const props = defineProps({
 
 const isAnchor = href => href.startsWith('#')
 
+// ── Route ─────────────────────────────────────────────────────────────────────
+const route = useRoute()
+
+function getActiveIndex() {
+  if (!props.links.length) return -1
+  let idx = props.links.findIndex(l => !isAnchor(l.href) && l.href === route.path)
+  if (idx === -1)
+    idx = props.links.findIndex(l => !isAnchor(l.href) && l.href !== '/' && route.path.startsWith(l.href))
+  return idx
+}
+
 const scrolled       = ref(false)
 const scrollProgress = ref(0)
 const menuOpen       = ref(false)
 const mounted        = ref(false)
 const logoHover      = ref(false)
-const activeLink     = ref(props.links[0]?.href ?? '')
+const activeLink     = ref('')
 const pillVisible    = ref(false)
 const pillLeft       = ref(0)
 const pillWidth      = ref(0)
 const ctaClicked     = ref(false)
 const particles      = ref([])
 const linksRef       = ref(null)
+
+// ── Sync pill quand la route change ──────────────────────────────────────────
+watch(
+  () => route.path,
+  () => {
+    const idx = getActiveIndex()
+    activeLink.value = idx !== -1 ? props.links[idx].href : ''
+    nextTick(() => { if (idx !== -1) updatePill(idx) })
+  }
+)
 
 const mobileItems = computed(() => {
   const items = props.links.map(l => ({ ...l, cls: 'mobile-link' }))
@@ -219,6 +257,13 @@ function spawnParticles() {
   setTimeout(() => (particles.value = []), 600)
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────────
+const router = useRouter()
+async function handleLogout() {
+  await signOut(auth)
+  router.push({ name: 'login' })
+}
+
 onMounted(() => {
   window.addEventListener('scroll', () => {
     scrolled.value = window.scrollY > 40
@@ -227,7 +272,11 @@ onMounted(() => {
   })
   setTimeout(() => {
     mounted.value = true
-    if (props.links.length) nextTick(() => updatePill(0))
+    const idx = getActiveIndex()
+    if (idx !== -1) {
+      activeLink.value = props.links[idx].href
+      nextTick(() => updatePill(idx))
+    }
   }, 50)
 })
 </script>
@@ -235,27 +284,44 @@ onMounted(() => {
 <style scoped>
 nav {
   position: fixed; top: 0; left: 0; right: 0;
-  z-index: 100; padding: 16px 24px;
+  z-index: 100; padding: 10px 12px;
   transition: padding 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+@media (min-width: 769px) {
+  nav { padding: 16px 24px; }
+}
+
 .scroll-bar {
   position: absolute; bottom: 0; left: 0; width: 100%; height: 1px;
   background: linear-gradient(90deg, #baf2d8, #6ee7b7);
   transform-origin: left; transform: scaleX(0);
   transition: transform 0.1s linear; opacity: 0.6;
 }
+
 .nav-inner {
   max-width: 1100px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 8px 16px;
+  background: rgba(6, 18, 44, 0.82);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px; padding: 6px 10px;
   backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
   transition: background 0.4s, border-color 0.4s, box-shadow 0.4s, opacity 0.5s, transform 0.5s cubic-bezier(0.4,0,0.2,1);
   opacity: 0; transform: translateY(-12px);
 }
+
+@media (min-width: 769px) {
+  .nav-inner {
+    background: rgba(255,255,255,0.03);
+    border-radius: 18px; padding: 8px 16px;
+  }
+}
+
 .nav-inner.mounted { opacity: 1; transform: translateY(0); }
+
 nav.scrolled .nav-inner {
-  background: rgba(6,18,44,0.75); border-color: rgba(255,255,255,0.12);
+  background: rgba(6,18,44,0.92);
+  border-color: rgba(255,255,255,0.12);
   box-shadow: 0 12px 48px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
@@ -269,6 +335,7 @@ nav.scrolled .nav-inner {
   background: linear-gradient(135deg, rgba(186,242,216,0.18), rgba(186,242,216,0.04));
   border: 1px solid rgba(186,242,216,0.22); border-radius: 9px; color: #baf2d8;
   transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s;
+  flex-shrink: 0;
 }
 .logo:hover .logo-icon { transform: rotate(10deg) scale(1.08); border-color: rgba(186,242,216,0.45); }
 .logo-ring { position: absolute; inset: -4px; border-radius: 13px; border: 1px solid rgba(186,242,216,0.3); opacity: 0; transform: scale(0.9); transition: opacity 0.3s, transform 0.3s; }
@@ -288,7 +355,11 @@ nav.scrolled .nav-inner {
 .pill.visible { opacity: 1; }
 
 /* Nav right */
-.nav-right { display: flex; align-items: center; gap: 8px; }
+.nav-right { display: flex; align-items: center; gap: 6px; }
+
+@media (min-width: 769px) {
+  .nav-right { gap: 8px; }
+}
 
 /* Divider */
 .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
@@ -304,12 +375,8 @@ nav.scrolled .nav-inner {
   transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
 }
 .extra-link.mounted { animation-play-state: running; }
-
-/* muted (défaut) */
 .extra-link:not(.extra-link--danger) { color: rgba(255,255,255,0.38); }
 .extra-link:not(.extra-link--danger):hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); transform: translateY(-1px); }
-
-/* danger */
 .extra-link--danger { color: rgba(255,90,90,0.5); }
 .extra-link--danger:hover { color: rgba(255,100,100,0.9); background: rgba(255,80,80,0.08); border-color: rgba(255,80,80,0.18); transform: translateY(-1px); }
 
@@ -325,11 +392,11 @@ nav.scrolled .nav-inner {
 .login:hover { color: rgba(255,255,255,0.85); transform: translateY(-1px); }
 
 /* CTA */
-.cta { position: relative; display: inline-flex; align-items: center; font-size: 0.8rem; font-weight: 600; color: #0a1f2e; background: #baf2d8; padding: 8px 16px; border-radius: 12px; text-decoration: none; overflow: hidden; opacity: 0; animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) forwards; animation-delay: calc(var(--i) * 80ms + 200ms); animation-play-state: paused; transition: background 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s; }
+.cta { position: relative; display: inline-flex; align-items: center; font-size: 0.75rem; font-weight: 600; color: #0a1f2e; background: #baf2d8; padding: 7px 12px; border-radius: 12px; text-decoration: none; overflow: hidden; opacity: 0; animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) forwards; animation-delay: calc(var(--i) * 80ms + 200ms); animation-play-state: paused; transition: background 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s; white-space: nowrap; }
 .cta.mounted { animation-play-state: running; }
 .cta:hover { background: #cef7e8; transform: translateY(-2px) scale(1.02); box-shadow: 0 6px 24px rgba(186,242,216,0.4); }
 .cta.clicked { transform: scale(0.95) !important; transition: transform 0.1s; }
-.cta-inner { display: flex; align-items: center; gap: 6px; position: relative; z-index: 1; }
+.cta-inner { display: flex; align-items: center; gap: 5px; position: relative; z-index: 1; }
 .cta-arrow { font-size: 0.72rem; transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
 .cta:hover .cta-arrow { transform: translate(2px,-2px); }
 .shimmer { position: absolute; top: 0; left: -100%; width: 70%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); transform: skewX(-15deg); animation: shimmer 4s ease-in-out 1.5s infinite; }
@@ -338,77 +405,118 @@ nav.scrolled .nav-inner {
 @keyframes particle-burst { 0%{ transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; } 100%{ transform:translate(-50%,-50%) translate(var(--px),var(--py)) scale(0); opacity:0; } }
 
 /* Burger */
-.burger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px; }
+.burger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 6px; flex-shrink: 0; }
 .bar { display: block; width: 20px; height: 1.5px; background: rgba(255,255,255,0.65); border-radius: 2px; transform-origin: center; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.2s; }
 .menu-open .bar-top { transform: translateY(3.25px) rotate(45deg); }
 .menu-open .bar-bot { transform: translateY(-3.25px) rotate(-45deg); }
 
 /* Mobile menu */
-.mobile-menu { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px 16px; max-width: 1100px; margin: 0 auto; }
-.mobile-menu a { display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem; font-weight: 600; color: rgba(255,255,255,0.58); text-decoration: none; padding: 10px 12px; border-radius: 10px; animation: mobileItemIn 0.3s cubic-bezier(0.4,0,0.2,1) forwards; animation-delay: calc(var(--mi) * 50ms); opacity: 0; transform: translateX(-8px); transition: background 0.2s, color 0.2s; }
-.mobile-menu a:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.9); }
+.mobile-menu {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 12px 20px;
+  max-width: 1100px; margin: 0 auto;
+  background: rgba(6, 18, 44, 0.96);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-top: none;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+}
+
+@media (min-width: 769px) {
+  .mobile-menu {
+    padding: 8px 16px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    backdrop-filter: none;
+  }
+}
+
+.mobile-menu a {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.9rem; font-weight: 600;
+  color: rgba(255,255,255,0.58); text-decoration: none;
+  padding: 13px 14px;
+  border-radius: 10px;
+  min-height: 44px;
+  animation: mobileItemIn 0.3s cubic-bezier(0.4,0,0.2,1) forwards;
+  animation-delay: calc(var(--mi) * 50ms);
+  opacity: 0; transform: translateX(-8px);
+  transition: background 0.2s, color 0.2s;
+}
+.mobile-menu a:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
 @keyframes mobileItemIn { to { opacity:1; transform:translateX(0); } }
+
 .mobile-login { color: rgba(255,255,255,0.45) !important; }
 .mobile-link--muted { color: rgba(255,255,255,0.35) !important; }
 .mobile-link--danger { color: rgba(255,100,100,0.6) !important; }
 .mobile-link--danger:hover { color: rgba(255,100,100,0.9) !important; background: rgba(255,80,80,0.07) !important; }
 .mobile-cta { color: #baf2d8 !important; font-weight: 700 !important; background: rgba(186,242,216,0.07) !important; border: 1px solid rgba(186,242,216,0.15) !important; }
 .m-arrow { opacity: 0.6; font-size: 0.75rem; }
+
 .mobile-enter-active { animation: menuSlide 0.35s cubic-bezier(0.4,0,0.2,1); }
 .mobile-leave-active { animation: menuSlide 0.25s cubic-bezier(0.4,0,0.2,1) reverse; }
 @keyframes menuSlide { from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:translateY(0); } }
 
+/* ─── Responsive mobile ─── */
 @media (max-width: 768px) {
-  nav { padding: 10px 12px; }
-  .nav-inner { padding: 6px 10px; border-radius: 14px; }
-  .links, .login, .extra-link, .nav-divider,
-  .cta, .user-chip, .logout-btn, .back-btn { display: none; }
-  .burger { display: flex; padding: 8px; margin-right: -4px; }
-  .bar { width: 22px; height: 2px; background: rgba(255,255,255,0.8); }
-  .logo { font-size: 0.92rem; }
-  .logo-icon { width: 28px; height: 28px; }
+  .links, .login, .extra-link, .nav-divider { display: none; }
+  .burger { display: flex; }
 
-  /* Fond opaque quand le menu burger est ouvert */
-  nav.menu-open {
-    background: rgba(6, 16, 38, 0.97);
-    backdrop-filter: blur(32px);
-    -webkit-backdrop-filter: blur(32px);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-  nav.menu-open .nav-inner {
-    background: transparent;
-    border-color: rgba(255,255,255,0.07);
-    box-shadow: none;
-  }
+  .logo-text { font-size: 0.88rem; }
 
-  /* Mobile menu container */
-  .mobile-menu { padding: 4px 12px 18px; gap: 3px; }
+  /* CTA compact sur mobile */
+  .cta { padding: 7px 11px; font-size: 0.72rem; }
 
-  .mobile-menu a {
-    font-size: 0.95rem;
-    padding: 13px 14px;
-    border-radius: 12px;
-    border: 1px solid transparent;
-  }
-  .mobile-menu a:hover { border-color: rgba(255,255,255,0.07); }
+  /* Back button compact */
+  .back-btn { padding: 5px 10px; font-size: 0.74rem; }
 
-  .mobile-link { font-size: 1rem !important; color: rgba(255,255,255,0.8) !important; }
-  .mobile-link:hover { color: #fff !important; }
-  .mobile-login { font-size: 0.88rem !important; color: rgba(255,255,255,0.45) !important; }
-  .mobile-link--muted { font-size: 0.82rem !important; color: rgba(255,255,255,0.3) !important; }
-  .mobile-link--danger { font-size: 0.88rem !important; color: rgba(255,100,100,0.65) !important; }
-  .mobile-link--danger:hover {
-    color: rgba(255,110,110,0.95) !important;
-    background: rgba(255,80,80,0.07) !important;
-    border-color: rgba(255,80,80,0.12) !important;
-  }
-  .mobile-cta {
-    color: #0a1f2e !important; font-weight: 700 !important; font-size: 0.95rem !important;
-    background: #baf2d8 !important; border: none !important;
-    border-radius: 12px !important; padding: 14px 16px !important;
-    margin-top: 6px; justify-content: center !important;
-  }
-  .mobile-cta:hover { background: #cef7e8 !important; color: #0a1f2e !important; }
-  .mobile-cta .m-arrow { opacity: 0.6; }
+  /* User chip : avatar seul, pas de nom */
+  .user-name { display: none; }
+  .user-chip { padding: 4px; }
+
+  /* Logout texte raccourci via clip, ou on réduit */
+  .logout-btn { font-size: 0.72rem; padding: 5px 7px; }
 }
+
+/* ─── User chip ─── */
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 12px 4px 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 100px;
+  opacity: 0; transform: translateY(-6px);
+  animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) 200ms forwards;
+  animation-play-state: paused;
+}
+.user-chip.mounted { animation-play-state: running; }
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(186,242,216,0.3), rgba(186,242,216,0.1));
+  border: 1px solid rgba(186,242,216,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; color: #baf2d8;
+  overflow: hidden; flex-shrink: 0;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-name {
+  font-size: 0.78rem; font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  max-width: 120px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.logout-btn {
+  font-size: 0.78rem; font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  background: none; border: none; cursor: pointer; padding: 6px 10px;
+  opacity: 0; transform: translateY(-6px);
+  animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) 250ms forwards;
+  animation-play-state: paused;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+.logout-btn.mounted { animation-play-state: running; }
+.logout-btn:hover { color: rgba(248,113,113,0.8); }
 </style>
