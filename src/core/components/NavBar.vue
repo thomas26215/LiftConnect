@@ -75,51 +75,37 @@
           {{ backLink.label }}
         </component>
 
-        <!-- User connecté -->
-        <template v-if="currentUser">
-          <div class="user-chip" :class="{ mounted }">
-            <div class="user-avatar">
-              <img v-if="currentUser.photoURL" :src="currentUser.photoURL" alt="avatar" />
-              <span v-else>{{ currentUser.displayName?.charAt(0)?.toUpperCase() ?? '?' }}</span>
-            </div>
-            <span class="user-name">{{ currentUser.displayName ?? currentUser.email }}</span>
-          </div>
-          <button class="logout-btn" :class="{ mounted }" @click="handleLogout">
-            Déconnexion
-          </button>
-        </template>
+        <!-- Login -->
+        <component
+          v-if="showLogin"
+          :is="isAnchor(loginHref) ? 'a' : RouterLink"
+          :href="isAnchor(loginHref) ? loginHref : undefined"
+          :to="isAnchor(loginHref) ? undefined : loginHref"
+          class="login"
+          :style="{ '--i': links.length }"
+          :class="{ mounted }"
+        >
+          Se connecter
+        </component>
 
-        <!-- Non connecté -->
-        <template v-else>
-          <component
-            v-if="showLogin"
-            :is="isAnchor(loginHref) ? 'a' : RouterLink"
-            :href="isAnchor(loginHref) ? loginHref : undefined"
-            :to="isAnchor(loginHref) ? undefined : loginHref"
-            class="login"
-            :style="{ '--i': links.length }"
-            :class="{ mounted }"
-          >
-            Se connecter
-          </component>
-          <component
-            v-if="showCta"
-            :is="isAnchor(ctaHref) ? 'a' : RouterLink"
-            :href="isAnchor(ctaHref) ? ctaHref : undefined"
-            :to="isAnchor(ctaHref) ? undefined : ctaHref"
-            class="cta"
-            :style="{ '--i': links.length + (showLogin ? 1 : 0) }"
-            :class="{ mounted, clicked: ctaClicked }"
-            @click="onCtaClick"
-          >
-            <span class="cta-inner">
-              <span class="cta-text">{{ ctaLabel }}</span>
-              <span class="cta-arrow">&#8599;</span>
-            </span>
-            <span class="shimmer"></span>
-            <span v-for="p in particles" :key="p.id" class="particle" :style="p.style"></span>
-          </component>
-        </template>
+        <!-- CTA -->
+        <component
+          v-if="showCta"
+          :is="isAnchor(ctaHref) ? 'a' : RouterLink"
+          :href="isAnchor(ctaHref) ? ctaHref : undefined"
+          :to="isAnchor(ctaHref) ? undefined : ctaHref"
+          class="cta"
+          :style="{ '--i': links.length + (showLogin ? 1 : 0) }"
+          :class="{ mounted, clicked: ctaClicked }"
+          @click="onCtaClick"
+        >
+          <span class="cta-inner">
+            <span class="cta-text">{{ ctaLabel }}</span>
+            <span class="cta-arrow">&#8599;</span>
+          </span>
+          <span class="shimmer"></span>
+          <span v-for="p in particles" :key="p.id" class="particle" :style="p.style"></span>
+        </component>
 
         <!-- Burger -->
         <button class="burger" @click="toggleMenu" :aria-expanded="menuOpen">
@@ -151,11 +137,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { signOut } from 'firebase/auth'
-import { auth } from '@/firebase'
-import { currentUser } from '@/stores/auth'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps({
   logoHref:      { type: String,  default: '/' },
@@ -173,39 +156,18 @@ const props = defineProps({
 
 const isAnchor = href => href.startsWith('#')
 
-// ── Route ─────────────────────────────────────────────────────────────────────
-const route = useRoute()
-
-function getActiveIndex() {
-  if (!props.links.length) return -1
-  let idx = props.links.findIndex(l => !isAnchor(l.href) && l.href === route.path)
-  if (idx === -1)
-    idx = props.links.findIndex(l => !isAnchor(l.href) && l.href !== '/' && route.path.startsWith(l.href))
-  return idx
-}
-
 const scrolled       = ref(false)
 const scrollProgress = ref(0)
 const menuOpen       = ref(false)
 const mounted        = ref(false)
 const logoHover      = ref(false)
-const activeLink     = ref('')
+const activeLink     = ref(props.links[0]?.href ?? '')
 const pillVisible    = ref(false)
 const pillLeft       = ref(0)
 const pillWidth      = ref(0)
 const ctaClicked     = ref(false)
 const particles      = ref([])
 const linksRef       = ref(null)
-
-// ── Sync pill quand la route change ──────────────────────────────────────────
-watch(
-  () => route.path,
-  () => {
-    const idx = getActiveIndex()
-    activeLink.value = idx !== -1 ? props.links[idx].href : ''
-    nextTick(() => { if (idx !== -1) updatePill(idx) })
-  }
-)
 
 const mobileItems = computed(() => {
   const items = props.links.map(l => ({ ...l, cls: 'mobile-link' }))
@@ -257,13 +219,6 @@ function spawnParticles() {
   setTimeout(() => (particles.value = []), 600)
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────────
-const router = useRouter()
-async function handleLogout() {
-  await signOut(auth)
-  router.push({ name: 'login' })
-}
-
 onMounted(() => {
   window.addEventListener('scroll', () => {
     scrolled.value = window.scrollY > 40
@@ -272,11 +227,7 @@ onMounted(() => {
   })
   setTimeout(() => {
     mounted.value = true
-    const idx = getActiveIndex()
-    if (idx !== -1) {
-      activeLink.value = props.links[idx].href
-      nextTick(() => updatePill(idx))
-    }
+    if (props.links.length) nextTick(() => updatePill(0))
   }, 50)
 })
 </script>
@@ -408,46 +359,56 @@ nav.scrolled .nav-inner {
 @keyframes menuSlide { from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:translateY(0); } }
 
 @media (max-width: 768px) {
-  .links, .login, .extra-link, .nav-divider { display: none; }
-  .burger { display: flex; }
-}
+  nav { padding: 10px 12px; }
+  .nav-inner { padding: 6px 10px; border-radius: 14px; }
+  .links, .login, .extra-link, .nav-divider,
+  .cta, .user-chip, .logout-btn, .back-btn { display: none; }
+  .burger { display: flex; padding: 8px; margin-right: -4px; }
+  .bar { width: 22px; height: 2px; background: rgba(255,255,255,0.8); }
+  .logo { font-size: 0.92rem; }
+  .logo-icon { width: 28px; height: 28px; }
 
-/* ─── User chip ─── */
-.user-chip {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 12px 4px 4px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 100px;
-  opacity: 0; transform: translateY(-6px);
-  animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) 200ms forwards;
-  animation-play-state: paused;
+  /* Fond opaque quand le menu burger est ouvert */
+  nav.menu-open {
+    background: rgba(6, 16, 38, 0.97);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  nav.menu-open .nav-inner {
+    background: transparent;
+    border-color: rgba(255,255,255,0.07);
+    box-shadow: none;
+  }
+
+  /* Mobile menu container */
+  .mobile-menu { padding: 4px 12px 18px; gap: 3px; }
+
+  .mobile-menu a {
+    font-size: 0.95rem;
+    padding: 13px 14px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+  }
+  .mobile-menu a:hover { border-color: rgba(255,255,255,0.07); }
+
+  .mobile-link { font-size: 1rem !important; color: rgba(255,255,255,0.8) !important; }
+  .mobile-link:hover { color: #fff !important; }
+  .mobile-login { font-size: 0.88rem !important; color: rgba(255,255,255,0.45) !important; }
+  .mobile-link--muted { font-size: 0.82rem !important; color: rgba(255,255,255,0.3) !important; }
+  .mobile-link--danger { font-size: 0.88rem !important; color: rgba(255,100,100,0.65) !important; }
+  .mobile-link--danger:hover {
+    color: rgba(255,110,110,0.95) !important;
+    background: rgba(255,80,80,0.07) !important;
+    border-color: rgba(255,80,80,0.12) !important;
+  }
+  .mobile-cta {
+    color: #0a1f2e !important; font-weight: 700 !important; font-size: 0.95rem !important;
+    background: #baf2d8 !important; border: none !important;
+    border-radius: 12px !important; padding: 14px 16px !important;
+    margin-top: 6px; justify-content: center !important;
+  }
+  .mobile-cta:hover { background: #cef7e8 !important; color: #0a1f2e !important; }
+  .mobile-cta .m-arrow { opacity: 0.6; }
 }
-.user-chip.mounted { animation-play-state: running; }
-.user-avatar {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: linear-gradient(135deg, rgba(186,242,216,0.3), rgba(186,242,216,0.1));
-  border: 1px solid rgba(186,242,216,0.25);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.7rem; font-weight: 700; color: #baf2d8;
-  overflow: hidden; flex-shrink: 0;
-}
-.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.user-name {
-  font-size: 0.78rem; font-weight: 600;
-  color: rgba(255,255,255,0.75);
-  max-width: 120px; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
-.logout-btn {
-  font-size: 0.78rem; font-weight: 600;
-  color: rgba(255,255,255,0.35);
-  background: none; border: none; cursor: pointer; padding: 6px 10px;
-  opacity: 0; transform: translateY(-6px);
-  animation: fadeSlideDown 0.4s cubic-bezier(0.4,0,0.2,1) 250ms forwards;
-  animation-play-state: paused;
-  transition: color 0.2s;
-}
-.logout-btn.mounted { animation-play-state: running; }
-.logout-btn:hover { color: rgba(248,113,113,0.8); }
 </style>
