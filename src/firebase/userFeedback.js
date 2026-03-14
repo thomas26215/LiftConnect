@@ -10,6 +10,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -203,6 +204,8 @@ export function useFeedback() {
       const userSnap = await getDoc(doc(db, 'users', feedback.userId))
       if (userSnap.exists()) {
         enriched.memberSince = formatMemberSince(userSnap.data().createdAt)
+        // ✅ Toujours synchroniser la photoURL depuis le profil utilisateur
+        enriched.photoURL = userSnap.data().photoURL ?? feedback.photoURL ?? null
       }
     } catch (e) {
       console.warn(`[useFeedback] Stats introuvables pour userId=${feedback.userId}`, e)
@@ -239,14 +242,28 @@ export function useFeedback() {
   // CREATE
   // ─────────────────────────────────────────────────────────
 
+  /**
+   * Crée un avis dans /notice.
+   * L'ID du document est l'UID de l'utilisateur — ce qui garantit
+   * nativement qu'un seul avis existe par membre (setDoc écrase
+   * si l'utilisateur tente de soumettre à nouveau, mais la page
+   * bloque déjà la soumission en amont via hasAlreadyReviewed).
+   *
+   * @param {object} payload - { name, sport, rating, tags, text, userId, photoURL? }
+   * @returns {Promise<string>} L'ID du document créé (= userId)
+   */
   async function addFeedback(payload) {
-    const { name, sport, rating, tags, text, userId = null } = payload
+    const { name, sport, rating, tags, text, userId = null, photoURL = null } = payload
+
+    // Un userId est obligatoire pour que l'ID du document soit défini
+    if (!userId) throw new Error('[useFeedback] addFeedback: userId est requis')
 
     const docData = {
       userId,
       name:      name.trim(),
       initials:  buildInitials(name),
-      hue:       buildHue(userId ?? name),
+      hue:       buildHue(userId),
+      photoURL,
       sport:     sport || '',
       rating,
       text:      text.trim(),
@@ -259,8 +276,9 @@ export function useFeedback() {
     }
 
     try {
-      const docRef = await addDoc(noticeRef, docData)
-      return docRef.id
+      // ✅ setDoc avec l'UID comme ID de document (au lieu de addDoc)
+      await setDoc(doc(db, 'notice', userId), docData)
+      return userId
     } catch (e) {
       console.error('[useFeedback] addFeedback error:', e)
       throw e
@@ -351,12 +369,13 @@ export function useFeedback() {
   }
 
   async function addReply(noticeId, payload) {
-    const { name, text, userId = null } = payload
+    const { name, text, userId = null, photoURL = null } = payload
     const data = {
       userId,
       name:      name.trim(),
       initials:  buildInitials(name),
       hue:       buildHue(userId ?? name),
+      photoURL,
       text:      text.trim(),
       createdAt: serverTimestamp(),
     }
@@ -404,11 +423,20 @@ export function useFeedback() {
     }
   }
 
+  /**
+   * Vérifie si un avis existe pour cet utilisateur.
+   * Grâce à l'ID du document = userId, un simple getDoc suffit
+   * (plus efficace qu'une query).
+   *
+   * @param {string} uid
+   * @returns {Promise<Array>} Tableau vide ou avec l'unique avis trouvé
+   */
   async function fetchByUser(uid) {
+    if (!uid) return []
     try {
-      const q    = query(noticeRef, where('userId', '==', uid), orderBy('createdAt', 'desc'))
-      const snap = await getDocs(q)
-      return snap.docs.map(d => ({ ...d.data(), id: d.id, date: formatDate(d.data().createdAt) }))
+      const snap = await getDoc(doc(db, 'notice', uid))
+      if (!snap.exists()) return []
+      return [{ ...snap.data(), id: snap.id, date: formatDate(snap.data().createdAt) }]
     } catch (e) {
       console.error('[useFeedback] fetchByUser error:', e)
       return []
@@ -456,4 +484,3 @@ export function useFeedback() {
     formatMemberSince,
   }
 }
-

@@ -86,7 +86,7 @@
     <!-- ── COMMENTS LIST ── -->
     <div class="comments-section">
 
-      <TransitionGroup name="list-anim" tag="div" class="comments-grid">
+      <div class="comments-grid">
         <article
           v-for="c in filteredComments"
           :key="c.id"
@@ -99,8 +99,10 @@
           </div>
 
           <div class="comment-header">
+            <!-- Avatar : photo de profil ou initiales -->
             <div class="c-avatar" :style="{ '--hue': c.hue }">
-              <span>{{ c.initials }}</span>
+              <img v-if="c.photoURL" :src="c.photoURL" :alt="c.name" class="c-avatar-img" @error="handleAvatarError($event)" />
+              <span v-else>{{ c.initials }}</span>
             </div>
             <div class="c-meta">
               <strong class="c-name">{{ c.name }}</strong>
@@ -123,7 +125,7 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 {{ c.likes }}
               </button>
-              <button class="action-btn reply-btn" @click="openReply(c)">
+              <button class="action-btn reply-btn" @click="openReply(c)" :disabled="!currentUser">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 Répondre
               </button>
@@ -133,7 +135,10 @@
           <!-- Réponses -->
           <div class="replies" v-if="repliesMap[c.id]?.length">
             <div v-for="r in repliesMap[c.id]" :key="r.id" class="reply">
-              <div class="reply-avatar" :style="{ '--hue': r.hue }">{{ r.initials }}</div>
+              <div class="reply-avatar" :style="{ '--hue': r.hue }">
+                <img v-if="r.photoURL" :src="r.photoURL" :alt="r.name" class="reply-avatar-img" @error="handleAvatarError($event)" />
+                <span v-else>{{ r.initials }}</span>
+              </div>
               <div class="reply-body">
                 <strong>{{ r.name }}</strong>
                 <span class="reply-date">{{ r.date }}</span>
@@ -153,7 +158,7 @@
           </Transition>
 
         </article>
-      </TransitionGroup>
+      </div>
 
       <!-- Charger plus -->
       <div class="load-more" v-if="hasMore && !loading">
@@ -183,103 +188,150 @@
         </div>
       </div>
 
-      <div class="form-grid">
-
-        <!-- Col gauche -->
-        <div class="form-col">
-          <div class="form-group">
-            <label>Prénom & Nom <span class="req">*</span></label>
-            <input v-model="form.name" type="text" placeholder="Alex Martin" :class="{ error: errors.name }" @input="errors.name = false" />
-            <span class="err-msg" v-if="errors.name">Ce champ est requis.</span>
+      <!-- ── État : non connecté ── -->
+      <Transition name="fade-block">
+        <div class="auth-gate" v-if="!currentUser">
+          <div class="auth-gate-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(186,242,216,0.5)" stroke-width="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
           </div>
-
-          <div class="form-group">
-            <label>Sport pratiqué <span class="optional">(optionnel)</span></label>
-            <div class="sport-picker">
-              <button
-                v-for="s in sportOptions"
-                :key="s"
-                type="button"
-                class="sport-btn"
-                :class="{ active: form.sport === s }"
-                @click="form.sport = form.sport === s ? '' : s"
-              >{{ s }}</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Votre note <span class="req">*</span></label>
-            <div class="star-picker">
-              <button
-                v-for="n in 5"
-                :key="n"
-                type="button"
-                class="star-btn"
-                :class="{ active: n <= (hoverRating || form.rating) }"
-                @click="form.rating = n; errors.rating = false"
-                @mouseenter="hoverRating = n"
-                @mouseleave="hoverRating = 0"
-              >★</button>
-              <span class="star-label" v-if="form.rating">{{ starLabels[form.rating - 1] }}</span>
-            </div>
-            <span class="err-msg" v-if="errors.rating">Veuillez choisir une note.</span>
-          </div>
+          <p class="auth-gate-title">Connectez-vous pour laisser un avis</p>
+          <p class="auth-gate-sub">Seuls les membres LiftConnect peuvent partager leur expérience.</p>
+          <a href="/login" class="btn-auth">Se connecter</a>
         </div>
+      </Transition>
 
-        <!-- Col droite -->
-        <div class="form-col">
-          <div class="form-group">
-            <label>Mots-clés <span class="optional">(optionnel)</span></label>
-            <div class="tag-picker">
-              <button
-                v-for="t in availableTags"
-                :key="t"
-                type="button"
-                class="tag-btn"
-                :class="{ active: form.tags.includes(t) }"
-                @click="toggleTag(t)"
-              >{{ t }}</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Votre commentaire <span class="req">*</span></label>
-            <textarea
-              v-model="form.text"
-              placeholder="Dites-nous ce que vous pensez de LiftConnect, de la communauté, de vos progrès…"
-              rows="5"
-              :class="{ error: errors.text }"
-              @input="errors.text = false"
-            ></textarea>
-            <div class="textarea-footer">
-              <span class="err-msg" v-if="errors.text">Merci d'écrire un commentaire.</span>
-              <span class="char-count" :class="{ over: form.text.length > 500 }">{{ form.text.length }}/500</span>
+      <!-- ── État : avis déjà posté ── -->
+      <Transition name="fade-block">
+        <div class="already-reviewed" v-if="currentUser && hasAlreadyReviewed">
+          <div class="already-reviewed-inner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#baf2d8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <div>
+              <p class="already-reviewed-title">Vous avez déjà posté un avis</p>
+              <p class="already-reviewed-sub">Merci pour votre retour, {{ currentUserProfile?.username || currentUser.displayName }} ! Un seul avis est autorisé par membre.</p>
             </div>
           </div>
         </div>
+      </Transition>
 
-      </div>
+      <!-- ── Formulaire (connecté + pas encore d'avis) ── -->
+      <Transition name="fade-block">
+        <div v-if="currentUser && !hasAlreadyReviewed">
 
-      <div class="form-submit-row">
-        <button class="btn-submit" @click="submitComment" :disabled="submitting">
-          <Transition name="btn-content" mode="out-in">
-            <span v-if="!submitting" class="btn-inner" key="label">
-              Publier mon avis
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </span>
-            <span v-else class="btn-inner" key="loading">
-              <span class="spinner"></span>
-              Publication…
-            </span>
+          <!-- Identité automatique (lecture seule) -->
+          <div class="user-identity">
+            <div class="user-identity-avatar" :style="{ '--hue': currentUserHue }">
+              <img
+                v-if="currentUserProfile?.photoURL"
+                :src="currentUserProfile.photoURL"
+                :alt="currentUserProfile.username"
+                class="c-avatar-img"
+                @error="handleAvatarError($event)"
+              />
+              <span v-else>{{ currentUserInitials }}</span>
+            </div>
+            <div class="user-identity-info">
+              <span class="user-identity-name">{{ currentUserProfile?.username || currentUser.displayName || 'Anonyme' }}</span>
+              <span class="user-identity-label">Votre avis sera publié sous ce nom</span>
+            </div>
+          </div>
+
+          <div class="form-grid">
+
+            <!-- Col gauche -->
+            <div class="form-col">
+              <div class="form-group">
+                <label>Sport pratiqué <span class="optional">(optionnel)</span></label>
+                <div class="sport-picker">
+                  <button
+                    v-for="s in sportOptions"
+                    :key="s"
+                    type="button"
+                    class="sport-btn"
+                    :class="{ active: form.sport === s }"
+                    @click="form.sport = form.sport === s ? '' : s"
+                  >{{ s }}</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Votre note <span class="req">*</span></label>
+                <div class="star-picker">
+                  <button
+                    v-for="n in 5"
+                    :key="n"
+                    type="button"
+                    class="star-btn"
+                    :class="{ active: n <= (hoverRating || form.rating) }"
+                    @click="form.rating = n; errors.rating = false"
+                    @mouseenter="hoverRating = n"
+                    @mouseleave="hoverRating = 0"
+                  >★</button>
+                  <span class="star-label" v-if="form.rating">{{ starLabels[form.rating - 1] }}</span>
+                </div>
+                <span class="err-msg" v-if="errors.rating">Veuillez choisir une note.</span>
+              </div>
+            </div>
+
+            <!-- Col droite -->
+            <div class="form-col">
+              <div class="form-group">
+                <label>Mots-clés <span class="optional">(optionnel)</span></label>
+                <div class="tag-picker">
+                  <button
+                    v-for="t in availableTags"
+                    :key="t"
+                    type="button"
+                    class="tag-btn"
+                    :class="{ active: form.tags.includes(t) }"
+                    @click="toggleTag(t)"
+                  >{{ t }}</button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Votre commentaire <span class="req">*</span></label>
+                <textarea
+                  v-model="form.text"
+                  placeholder="Dites-nous ce que vous pensez de LiftConnect, de la communauté, de vos progrès…"
+                  rows="5"
+                  :class="{ error: errors.text }"
+                  @input="errors.text = false"
+                ></textarea>
+                <div class="textarea-footer">
+                  <span class="err-msg" v-if="errors.text">Merci d'écrire un commentaire (500 caractères max).</span>
+                  <span class="char-count" :class="{ over: form.text.length > 500 }">{{ form.text.length }}/500</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="form-submit-row">
+            <button class="btn-submit" @click="submitComment" :disabled="submitting">
+              <Transition name="btn-content" mode="out-in">
+                <span v-if="!submitting" class="btn-inner" key="label">
+                  Publier mon avis
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </span>
+                <span v-else class="btn-inner" key="loading">
+                  <span class="spinner"></span>
+                  Publication…
+                </span>
+              </Transition>
+            </button>
+            <p class="form-note">Votre avis sera visible immédiatement.</p>
+          </div>
+
+          <Transition name="toast-slide">
+            <div class="success-toast" v-if="showSuccess">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a1f2e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Merci {{ lastAuthor }} ! Votre avis a bien été publié.
+            </div>
           </Transition>
-        </button>
-        <p class="form-note">Votre avis sera visible immédiatement.</p>
-      </div>
 
-      <Transition name="toast-slide">
-        <div class="success-toast" v-if="showSuccess">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a1f2e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Merci {{ lastAuthor }} ! Votre avis a bien été publié.
         </div>
       </Transition>
 
@@ -294,6 +346,7 @@ import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { currentUser, authReady } from '@/stores/auth'
 import { useFeedback } from '@/firebase/userFeedback.js'
+import { useUsers } from '@/firebase/user.js'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -304,7 +357,55 @@ const {
   addFeedback,
   toggleLike: fbToggleLike,
   fetchReplies, addReply,
+  fetchByUser,
 } = useFeedback()
+
+const { fetchUser } = useUsers()
+
+// ── Profil utilisateur connecté ───────────────────────
+const currentUserProfile  = ref(null)
+const hasAlreadyReviewed  = ref(false)
+
+// Helpers dérivés du profil courant
+const currentUserName = computed(() =>
+  currentUserProfile.value?.username
+  || currentUser.value?.displayName
+  || 'Anonyme'
+)
+
+const currentUserInitials = computed(() => {
+  const name = currentUserName.value
+  return name.trim().split(' ').map(n => n[0]?.toUpperCase()).join('').slice(0, 2)
+})
+
+const currentUserHue = computed(() => {
+  const uid = currentUser.value?.uid ?? currentUserName.value
+  let hash = 0
+  for (let i = 0; i < uid.length; i++) hash = uid.charCodeAt(i) + ((hash << 5) - hash)
+  return Math.abs(hash % 80) + 130
+})
+
+// Charge le profil Firestore + vérifie si l'user a déjà posté
+async function loadCurrentUserProfile(uid) {
+  if (!uid) { currentUserProfile.value = null; hasAlreadyReviewed.value = false; return }
+
+  currentUserProfile.value = await fetchUser(uid)
+
+  // Vérifie si un avis existe déjà pour cet UID
+  const existing = await fetchByUser(uid)
+  hasAlreadyReviewed.value = existing.length > 0
+}
+
+watch(currentUser, (user) => {
+  loadCurrentUserProfile(user?.uid ?? null)
+  // Rafraîchit les états "liked" quand l'utilisateur change
+  if (user?.uid) {
+    reviews.value = reviews.value.map(r => ({
+      ...r,
+      liked: (r.likedBy ?? []).includes(user.uid),
+    }))
+  }
+}, { immediate: false })
 
 // ── Données statiques UI ─────────────────────────────
 const ratingBars = [
@@ -386,7 +487,6 @@ async function toggleLike(c) {
   const uid = currentUser.value?.uid
   if (!uid) return
   const alreadyLiked = (c.likedBy ?? []).includes(uid)
-  // Réassignation pour déclencher la réactivité Vue
   reviews.value = reviews.value.map(r => {
     if (r.id !== c.id) return r
     return {
@@ -407,6 +507,7 @@ const replyText   = ref('')
 const repliesMap  = ref({})
 
 async function openReply(c) {
+  if (!currentUser.value) return
   if (replyTarget.value === c.id) {
     replyTarget.value = null
     return
@@ -418,13 +519,20 @@ async function openReply(c) {
 }
 
 async function submitReply(c) {
-  if (!replyText.value.trim()) return
-  const uid  = currentUser.value?.uid ?? null
-  const name = (currentUser.value?.displayName ?? form.value.name?.trim()) || 'Anonyme'
-  await addReply(c.id, { name, text: replyText.value.trim(), userId: uid })
+  if (!replyText.value.trim() || !currentUser.value) return
+  const uid  = currentUser.value.uid
+  const name = currentUserName.value
+  const photoURL = currentUserProfile.value?.photoURL ?? null
+  await addReply(c.id, { name, text: replyText.value.trim(), userId: uid, photoURL })
   repliesMap.value[c.id] = await fetchReplies(c.id)
   replyText.value   = ''
   replyTarget.value = null
+}
+
+// ── Gestion erreur avatar ─────────────────────────────
+function handleAvatarError(event) {
+  // Cache l'image cassée pour afficher les initiales en fallback
+  event.target.style.display = 'none'
 }
 
 // ── Form ──────────────────────────────────────────────
@@ -432,25 +540,12 @@ const sportOptions  = ['Musculation', 'CrossFit', 'Running', 'Natation', 'Yoga',
 const availableTags = ['Motivation', 'Interface', 'Communauté', 'Programmes', 'Défis', 'Progression', 'Coaching', 'Suivi', 'Musculation', 'Running', 'Natation', 'CrossFit']
 const starLabels    = ['Décevant', 'Passable', 'Correct', 'Très bien', 'Excellent !']
 
-const form        = ref({ name: '', sport: '', rating: 0, tags: [], text: '' })
-const errors      = ref({ name: false, rating: false, text: false })
+const form        = ref({ sport: '', rating: 0, tags: [], text: '' })
+const errors      = ref({ rating: false, text: false })
 const hoverRating = ref(0)
 const submitting  = ref(false)
 const showSuccess = ref(false)
 const lastAuthor  = ref('')
-
-// Pré-remplir le nom + marquer les likes si connecté
-watch(currentUser, (user) => {
-  if (user?.displayName && !form.value.name) {
-    form.value.name = user.displayName
-  }
-  if (user?.uid) {
-    reviews.value = reviews.value.map(r => ({
-      ...r,
-      liked: (r.likedBy ?? []).includes(user.uid)
-    }))
-  }
-}, { immediate: true })
 
 function toggleTag(t) {
   const i = form.value.tags.indexOf(t)
@@ -458,25 +553,32 @@ function toggleTag(t) {
 }
 
 async function submitComment() {
-  errors.value.name   = !form.value.name.trim()
+  if (!currentUser.value || hasAlreadyReviewed.value) return
+
   errors.value.rating = form.value.rating === 0
   errors.value.text   = !form.value.text.trim() || form.value.text.length > 500
-  if (errors.value.name || errors.value.rating || errors.value.text) return
+  if (errors.value.rating || errors.value.text) return
 
   submitting.value = true
   try {
+    const name     = currentUserName.value
+    const photoURL = currentUserProfile.value?.photoURL ?? null
+
     await addFeedback({
-      name:   form.value.name.trim(),
+      name,
+      photoURL,
       sport:  form.value.sport,
       rating: form.value.rating,
       tags:   [...form.value.tags],
       text:   form.value.text.trim(),
-      userId: currentUser.value?.uid ?? null,
+      userId: currentUser.value.uid,
     })
-    lastAuthor.value   = form.value.name.trim().split(' ')[0]
-    form.value         = { name: '', sport: '', rating: 0, tags: [], text: '' }
-    showSuccess.value  = true
-    activeFilter.value = 'all'
+
+    lastAuthor.value        = name.split(' ')[0]
+    form.value              = { sport: '', rating: 0, tags: [], text: '' }
+    hasAlreadyReviewed.value = true
+    showSuccess.value       = true
+    activeFilter.value      = 'all'
     await refresh()
     setTimeout(() => (showSuccess.value = false), 4000)
   } catch (e) {
@@ -494,19 +596,17 @@ const filtersRef  = ref(null)
 const formRef     = ref(null)
 
 onMounted(async () => {
-  // Chargement initial Firestore
   await fetchFeedbacks({ orderField: 'createdAt', orderDir: 'desc' })
 
-  // ✅ Réassignation complète pour déclencher la réactivité Vue
   const uid = currentUser.value?.uid
   if (uid) {
     reviews.value = reviews.value.map(r => ({
       ...r,
-      liked: (r.likedBy ?? []).includes(uid)
+      liked: (r.likedBy ?? []).includes(uid),
     }))
+    await loadCurrentUserProfile(uid)
   }
 
-  // GSAP animations
   gsap.from(heroRef.value.children, {
     y: 40, opacity: 0, duration: 0.9,
     stagger: 0.14, ease: 'power3.out', delay: 0.15,
@@ -690,13 +790,22 @@ h1 em { font-style: italic; color: #baf2d8; }
 }
 
 .comment-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+
+/* ─── Avatar (commun card + reply) ─── */
 .c-avatar {
   width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, hsl(calc(var(--hue)), 45%, 20%), hsl(calc(var(--hue)), 55%, 12%));
   border: 1.5px solid rgba(186,242,216,0.2);
   display: flex; align-items: center; justify-content: center;
   font-size: 0.62rem; font-weight: 800; color: #baf2d8;
+  overflow: hidden; position: relative;
 }
+.c-avatar-img {
+  width: 100%; height: 100%;
+  object-fit: cover; border-radius: 50%;
+  position: absolute; inset: 0;
+}
+
 .c-meta { flex: 1; min-width: 0; }
 .c-name { display: block; font-size: 0.9rem; font-weight: 700; color: #fff; }
 .c-sport {
@@ -725,7 +834,8 @@ h1 em { font-style: italic; color: #baf2d8; }
   background: none; border: 1px solid rgba(255,255,255,0.08);
   border-radius: 100px; padding: 5px 12px; cursor: pointer; transition: all 0.2s;
 }
-.action-btn:hover { color: rgba(186,242,216,0.8); border-color: rgba(186,242,216,0.2); }
+.action-btn:hover:not(:disabled) { color: rgba(186,242,216,0.8); border-color: rgba(186,242,216,0.2); }
+.action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .like-btn.liked { color: #baf2d8; border-color: rgba(186,242,216,0.35); background: rgba(186,242,216,0.06); }
 .like-btn.liked svg { fill: #baf2d8; stroke: #baf2d8; }
 
@@ -738,6 +848,12 @@ h1 em { font-style: italic; color: #baf2d8; }
   border: 1px solid rgba(186,242,216,0.15);
   display: flex; align-items: center; justify-content: center;
   font-size: 0.5rem; font-weight: 800; color: #baf2d8;
+  overflow: hidden; position: relative;
+}
+.reply-avatar-img {
+  width: 100%; height: 100%;
+  object-fit: cover; border-radius: 50%;
+  position: absolute; inset: 0;
 }
 .reply-body strong { font-size: 0.75rem; color: #fff; margin-right: 8px; }
 .reply-date { font-size: 0.62rem; color: rgba(255,255,255,0.25); }
@@ -803,6 +919,61 @@ h1 em { font-style: italic; color: #baf2d8; }
 }
 .write-header h2 { font-size: 1.3rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
 .write-header p { font-size: 0.82rem; color: rgba(255,255,255,0.35); margin: 0; }
+
+/* ─── Auth gate ─── */
+.auth-gate {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; padding: 48px 24px; text-align: center;
+}
+.auth-gate-icon {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: rgba(186,242,216,0.05); border: 1px solid rgba(186,242,216,0.12);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.auth-gate-title { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
+.auth-gate-sub { font-size: 0.82rem; color: rgba(255,255,255,0.35); margin: 0; max-width: 360px; }
+.btn-auth {
+  margin-top: 8px; display: inline-flex; align-items: center;
+  padding: 12px 30px; border-radius: 12px;
+  background: #baf2d8; color: #0a1f2e;
+  font-size: 0.87rem; font-weight: 800;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.btn-auth:hover { background: #cef7e8; transform: translateY(-2px); }
+
+/* ─── Already reviewed ─── */
+.already-reviewed {
+  padding: 28px 32px;
+  background: rgba(186,242,216,0.05);
+  border: 1px solid rgba(186,242,216,0.2);
+  border-radius: 16px;
+}
+.already-reviewed-inner { display: flex; align-items: flex-start; gap: 16px; }
+.already-reviewed-inner svg { flex-shrink: 0; margin-top: 2px; }
+.already-reviewed-title { font-size: 0.92rem; font-weight: 700; color: #baf2d8; margin: 0 0 4px; }
+.already-reviewed-sub { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0; }
+
+/* ─── User identity (remplace le champ nom) ─── */
+.user-identity {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; margin-bottom: 28px;
+  background: rgba(186,242,216,0.04);
+  border: 1px solid rgba(186,242,216,0.12);
+  border-radius: 14px;
+}
+.user-identity-avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, hsl(calc(var(--hue)), 45%, 20%), hsl(calc(var(--hue)), 55%, 12%));
+  border: 1.5px solid rgba(186,242,216,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.62rem; font-weight: 800; color: #baf2d8;
+  overflow: hidden; position: relative;
+}
+.user-identity-info { display: flex; flex-direction: column; gap: 3px; }
+.user-identity-name { font-size: 0.9rem; font-weight: 700; color: #fff; }
+.user-identity-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(186,242,216,0.4); }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
 .form-col { display: flex; flex-direction: column; }
@@ -891,10 +1062,13 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 }
 
 /* ─── Transitions ─── */
-.list-anim-enter-active { transition: all 0.45s cubic-bezier(0.34,1.56,0.64,1); }
-.list-anim-enter-from { opacity: 0; transform: translateY(-20px) scale(0.97); }
-.list-anim-leave-active { transition: all 0.3s ease; position: absolute; width: 100%; }
-.list-anim-leave-to { opacity: 0; transform: translateX(-10px); }
+.fade-block-enter-active { transition: opacity 0.35s ease, transform 0.35s ease; }
+.fade-block-enter-from { opacity: 0; transform: translateY(10px); }
+.fade-block-leave-active { transition: opacity 0.2s ease; }
+.fade-block-leave-to { opacity: 0; }
+
+
+
 
 .reply-slide-enter-active { transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 .reply-slide-enter-from { opacity: 0; transform: translateY(-10px); }
@@ -923,4 +1097,3 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
   .form-submit-row { flex-direction: column; align-items: flex-start; }
 }
 </style>
-
