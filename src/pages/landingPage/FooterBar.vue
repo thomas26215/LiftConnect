@@ -23,7 +23,7 @@
           </a>
           <p class="tagline">L'app fitness qui réunit les athlètes.<br>Progresse ensemble.</p>
           <div class="socials">
-            <a v-for="s in socials" :key="s.label" href="#" class="social-btn" :aria-label="s.label">
+            <a v-for="s in socials" :key="s.label" :href="s.link" class="social-btn" :aria-label="s.label">
               <component :is="s.icon" class="social-svg" />
             </a>
           </div>
@@ -99,9 +99,9 @@ const IconYoutube = defineComponent({ render: () => h('svg', svgBase, [
 
 
 const socials = [
-  { label: 'Instagram', icon: IconInstagram },
-  { label: 'Youtube', icon: IconYoutube },
-  { label: 'Discord', icon: IconDiscord },
+    { label: 'Instagram', icon: IconInstagram, link: 'https://www.instagram.com/liftconnectmusculation/' },
+    { label: 'Youtube', icon: IconYoutube, link: 'https://www.youtube.com/liftconnectapp' },
+    { label: 'Discord', icon: IconDiscord, link: 'https://discord.gg/liftconnect' },
 ]
 
 const navCols = [

@@ -123,7 +123,7 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 {{ c.likes }}
               </button>
-              <button class="action-btn reply-btn" @click="replyTarget = replyTarget === c.id ? null : c.id">
+              <button class="action-btn reply-btn" @click="openReply(c)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 Répondre
               </button>
@@ -131,8 +131,8 @@
           </div>
 
           <!-- Réponses -->
-          <div class="replies" v-if="c.replies && c.replies.length">
-            <div v-for="r in c.replies" :key="r.id" class="reply">
+          <div class="replies" v-if="repliesMap[c.id]?.length">
+            <div v-for="r in repliesMap[c.id]" :key="r.id" class="reply">
               <div class="reply-avatar" :style="{ '--hue': r.hue }">{{ r.initials }}</div>
               <div class="reply-body">
                 <strong>{{ r.name }}</strong>
@@ -155,7 +155,16 @@
         </article>
       </TransitionGroup>
 
-      <div class="empty-state" v-if="filteredComments.length === 0">
+      <!-- Charger plus -->
+      <div class="load-more" v-if="hasMore && !loading">
+        <button class="btn-load-more" @click="fetchNextPage()" :disabled="loadingMore">
+          <span class="spinner" v-if="loadingMore"></span>
+          <span v-else>Charger plus d'avis</span>
+        </button>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" v-if="filteredComments.length === 0 && !loading">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(186,242,216,0.3)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <p>Aucun avis trouvé pour cette recherche.</p>
       </div>
@@ -280,83 +289,47 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { currentUser, authReady } from '@/stores/auth'
+import { useFeedback } from '@/firebase/userFeedback.js'
 
 gsap.registerPlugin(ScrollTrigger)
 
-// ── Static data ─────────────────────────────────────
+// ── Firebase ──────────────────────────────────────────
+const {
+  reviews, loading, loadingMore, hasMore,
+  fetchFeedbacks, fetchNextPage, refresh,
+  addFeedback,
+  toggleLike: fbToggleLike,
+  fetchReplies, addReply,
+} = useFeedback()
+
+// ── Données statiques UI ─────────────────────────────
 const ratingBars = [
   { stars: 5, pct: 82, count: 2341 },
-  { stars: 4, pct: 12, count: 342 },
-  { stars: 3, pct: 4,  count: 114 },
-  { stars: 2, pct: 1,  count: 29  },
-  { stars: 1, pct: 1,  count: 28  },
+  { stars: 4, pct: 12, count: 342  },
+  { stars: 3, pct: 4,  count: 114  },
+  { stars: 2, pct: 1,  count: 29   },
+  { stars: 1, pct: 1,  count: 28   },
 ]
 
 const topTags = [
-  { label: 'Motivation',   weight: 1.0 },
-  { label: 'Interface',    weight: 0.9 },
-  { label: 'Communauté',   weight: 0.85 },
-  { label: 'Programmes',   weight: 0.8 },
-  { label: 'Défis',        weight: 0.75 },
-  { label: 'Progression',  weight: 0.7 },
-  { label: 'Coaching',     weight: 0.65 },
-  { label: 'Suivi',        weight: 0.6 },
-  { label: 'Musculation',  weight: 0.55 },
-  { label: 'Running',      weight: 0.5 },
+  { label: 'Motivation',  weight: 1.0  },
+  { label: 'Interface',   weight: 0.9  },
+  { label: 'Communauté',  weight: 0.85 },
+  { label: 'Programmes',  weight: 0.8  },
+  { label: 'Défis',       weight: 0.75 },
+  { label: 'Progression', weight: 0.7  },
+  { label: 'Coaching',    weight: 0.65 },
+  { label: 'Suivi',       weight: 0.6  },
+  { label: 'Musculation', weight: 0.55 },
+  { label: 'Running',     weight: 0.5  },
 ]
 
-const defaultReviews = ref([
-  {
-    id: 1001, name: 'Julie M.', initials: 'JM', hue: 155, sport: 'CrossFit', rating: 5,
-    date: 'Il y a 2 jours', featured: true,
-    text: 'Après 3 mois sur LiftConnect, je suis bluffée par la qualité de la communauté et la précision du suivi. J\'ai perdu 6kg tout en gagnant en force. L\'interface est tellement intuitive que même ma mère a réussi à créer son profil !',
-    tags: ['Motivation', 'Interface', 'Communauté'],
-    likes: 87, liked: false,
-    replies: [{ id: 9001, name: 'Tom R.', initials: 'TR', hue: 180, date: 'Il y a 1 jour', text: 'Bravo Julie ! Continue comme ça 💪' }]
-  },
-  {
-    id: 1002, name: 'Karim B.', initials: 'KB', hue: 210, sport: 'Musculation', rating: 5,
-    date: 'Il y a 5 jours', featured: false,
-    text: 'Les programmes de musculation sont ultra-bien structurés. On voit vraiment la progression semaine après semaine. Le système de défis entre amis est addictif — j\'ai convaincu 4 collègues de télécharger l\'appli.',
-    tags: ['Programmes', 'Défis', 'Musculation'],
-    likes: 64, liked: false, replies: []
-  },
-  {
-    id: 1003, name: 'Emma T.', initials: 'ET', hue: 170, sport: 'Yoga', rating: 5,
-    date: 'Il y a 1 semaine', featured: false,
-    text: 'Je ne m\'attendais pas à grand chose mais l\'expérience est vraiment premium. L\'app est fluide, les animations sont soignées, et on sent que c\'est fait par des gens qui pratiquent vraiment le sport. Rare.',
-    tags: ['Interface', 'Expérience'],
-    likes: 51, liked: false, replies: []
-  },
-  {
-    id: 1004, name: 'Pierre V.', initials: 'PV', hue: 195, sport: 'Running', rating: 4,
-    date: 'Il y a 2 semaines', featured: false,
-    text: 'Très bonne application dans l\'ensemble. Le tracking GPS est précis et les statistiques de récupération sont utiles. J\'aimerais juste voir plus de sports disponibles — le trail running manque encore un peu de profondeur.',
-    tags: ['Running', 'Suivi'],
-    likes: 39, liked: false, replies: []
-  },
-  {
-    id: 1005, name: 'Nadia L.', initials: 'NL', hue: 140, sport: 'Natation', rating: 5,
-    date: 'Il y a 3 semaines', featured: false,
-    text: 'La section natation est parfaite. Les métriques de nage (allure, distance, récupération) sont exactement ce dont j\'avais besoin. La synchro avec mon montre connectée fonctionne impeccablement.',
-    tags: ['Natation', 'Suivi', 'Progression'],
-    likes: 44, liked: false, replies: []
-  },
-  {
-    id: 1006, name: 'Romain C.', initials: 'RC', hue: 220, sport: 'CrossFit', rating: 5,
-    date: 'Il y a 1 mois', featured: false,
-    text: 'La feature "séance en groupe" est géniale pour s\'entraîner à distance avec des amis. On a monté un groupe de 8 personnes et on se challenge mutuellement chaque semaine. C\'est exactement ce que l\'appli de fitness doit faire.',
-    tags: ['Communauté', 'Défis', 'CrossFit'],
-    likes: 72, liked: false, replies: []
-  },
-])
-
-const userReviews = ref([])
-const allReviews = computed(() => [...userReviews.value, ...defaultReviews.value])
-const totalComments = computed(() => allReviews.value.length + 2848)
+// ── Computed ─────────────────────────────────────────
+const totalComments = computed(() => reviews.value.length + 2848)
 
 // ── Filters ──────────────────────────────────────────
 const activeFilter = ref('all')
@@ -364,21 +337,21 @@ const searchQuery  = ref('')
 const sortBy       = ref('recent')
 
 const filters = [
-  { label: 'Tous',     value: 'all'  },
-  { label: '5 ★',      value: '5'    },
-  { label: '4 ★',      value: '4'    },
-  { label: '3 ★ et -', value: 'low'  },
-  { label: 'Coups de cœur', value: 'featured' },
+  { label: 'Tous',           value: 'all'      },
+  { label: '5 ★',            value: '5'        },
+  { label: '4 ★',            value: '4'        },
+  { label: '3 ★ et -',       value: 'low'      },
+  { label: 'Coups de cœur',  value: 'featured' },
 ]
 
 const filteredComments = computed(() => {
-  let list = allReviews.value
+  let list = reviews.value
 
-  if (activeFilter.value === 'featured') list = list.filter(c => c.featured)
+  if (activeFilter.value === 'featured')    list = list.filter(c => c.featured)
+  else if (activeFilter.value === 'low')    list = list.filter(c => c.rating <= 3)
   else if (activeFilter.value !== 'all') {
     const star = parseInt(activeFilter.value)
-    if (activeFilter.value === 'low') list = list.filter(c => c.rating <= 3)
-    else list = list.filter(c => c.rating === star)
+    list = list.filter(c => c.rating === star)
   }
 
   if (searchQuery.value.trim()) {
@@ -386,52 +359,98 @@ const filteredComments = computed(() => {
     list = list.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.text.toLowerCase().includes(q) ||
-      c.tags.some(t => t.toLowerCase().includes(q))
+      (c.tags ?? []).some(t => t.toLowerCase().includes(q))
     )
   }
 
   if (sortBy.value === 'popular') list = [...list].sort((a, b) => b.likes - a.likes)
-  else if (sortBy.value === 'top')    list = [...list].sort((a, b) => b.rating - a.rating)
-  else if (sortBy.value === 'low')    list = [...list].sort((a, b) => a.rating - b.rating)
+  else if (sortBy.value === 'top') list = [...list].sort((a, b) => b.rating - a.rating)
+  else if (sortBy.value === 'low') list = [...list].sort((a, b) => a.rating - b.rating)
 
   return list
 })
 
-// ── Replies ──────────────────────────────────────────
+// Rechargement Firestore quand le tri change
+const fieldMap = { recent: 'createdAt', popular: 'likes', top: 'rating', low: 'rating' }
+const dirMap   = { recent: 'desc',      popular: 'desc',  top: 'desc',   low: 'asc'   }
+
+watch(sortBy, (val) => {
+  fetchFeedbacks({
+    orderField: fieldMap[val] ?? 'createdAt',
+    orderDir:   dirMap[val]   ?? 'desc',
+  })
+})
+
+// ── Likes ─────────────────────────────────────────────
+async function toggleLike(c) {
+  const uid = currentUser.value?.uid
+  if (!uid) return
+  const alreadyLiked = (c.likedBy ?? []).includes(uid)
+  // Réassignation pour déclencher la réactivité Vue
+  reviews.value = reviews.value.map(r => {
+    if (r.id !== c.id) return r
+    return {
+      ...r,
+      likes:   r.likes + (alreadyLiked ? -1 : 1),
+      liked:   !alreadyLiked,
+      likedBy: alreadyLiked
+        ? (r.likedBy ?? []).filter(id => id !== uid)
+        : [...(r.likedBy ?? []), uid],
+    }
+  })
+  await fbToggleLike(c.id, uid, alreadyLiked)
+}
+
+// ── Replies ───────────────────────────────────────────
 const replyTarget = ref(null)
 const replyText   = ref('')
+const repliesMap  = ref({})
 
-function submitReply(comment) {
+async function openReply(c) {
+  if (replyTarget.value === c.id) {
+    replyTarget.value = null
+    return
+  }
+  replyTarget.value = c.id
+  if (!repliesMap.value[c.id]) {
+    repliesMap.value[c.id] = await fetchReplies(c.id)
+  }
+}
+
+async function submitReply(c) {
   if (!replyText.value.trim()) return
-  if (!comment.replies) comment.replies = []
-  comment.replies.push({
-    id: Date.now(),
-    name: 'Vous',
-    initials: 'V',
-    hue: 160,
-    date: "À l'instant",
-    text: replyText.value.trim()
-  })
-  replyText.value = ''
+  const uid  = currentUser.value?.uid ?? null
+  const name = (currentUser.value?.displayName ?? form.value.name?.trim()) || 'Anonyme'
+  await addReply(c.id, { name, text: replyText.value.trim(), userId: uid })
+  repliesMap.value[c.id] = await fetchReplies(c.id)
+  replyText.value   = ''
   replyTarget.value = null
 }
 
-function toggleLike(c) {
-  c.liked = !c.liked
-  c.likes += c.liked ? 1 : -1
-}
-
-// ── Form ─────────────────────────────────────────────
-const sportOptions = ['Musculation', 'CrossFit', 'Running', 'Natation', 'Yoga', 'Cyclisme', 'Autre']
+// ── Form ──────────────────────────────────────────────
+const sportOptions  = ['Musculation', 'CrossFit', 'Running', 'Natation', 'Yoga', 'Cyclisme', 'Autre']
 const availableTags = ['Motivation', 'Interface', 'Communauté', 'Programmes', 'Défis', 'Progression', 'Coaching', 'Suivi', 'Musculation', 'Running', 'Natation', 'CrossFit']
-const starLabels = ['Décevant', 'Passable', 'Correct', 'Très bien', 'Excellent !']
+const starLabels    = ['Décevant', 'Passable', 'Correct', 'Très bien', 'Excellent !']
 
-const form = ref({ name: '', sport: '', rating: 0, tags: [], text: '' })
-const errors = ref({ name: false, rating: false, text: false })
-const hoverRating  = ref(0)
-const submitting   = ref(false)
-const showSuccess  = ref(false)
-const lastAuthor   = ref('')
+const form        = ref({ name: '', sport: '', rating: 0, tags: [], text: '' })
+const errors      = ref({ name: false, rating: false, text: false })
+const hoverRating = ref(0)
+const submitting  = ref(false)
+const showSuccess = ref(false)
+const lastAuthor  = ref('')
+
+// Pré-remplir le nom + marquer les likes si connecté
+watch(currentUser, (user) => {
+  if (user?.displayName && !form.value.name) {
+    form.value.name = user.displayName
+  }
+  if (user?.uid) {
+    reviews.value = reviews.value.map(r => ({
+      ...r,
+      liked: (r.likedBy ?? []).includes(user.uid)
+    }))
+  }
+}, { immediate: true })
 
 function toggleTag(t) {
   const i = form.value.tags.indexOf(t)
@@ -441,82 +460,86 @@ function toggleTag(t) {
 async function submitComment() {
   errors.value.name   = !form.value.name.trim()
   errors.value.rating = form.value.rating === 0
-  errors.value.text   = !form.value.text.trim()
+  errors.value.text   = !form.value.text.trim() || form.value.text.length > 500
   if (errors.value.name || errors.value.rating || errors.value.text) return
 
   submitting.value = true
-  await new Promise(r => setTimeout(r, 900))
-
-  const parts    = form.value.name.trim().split(' ')
-  const initials = parts.map(n => n[0]?.toUpperCase()).join('').slice(0, 2)
-
-  userReviews.value.unshift({
-    id: Date.now(),
-    name: form.value.name.trim(),
-    initials,
-    hue: Math.floor(Math.random() * 90) + 130,
-    sport: form.value.sport,
-    rating: form.value.rating,
-    date: "À l'instant",
-    featured: false,
-    text: form.value.text.trim(),
-    tags: [...form.value.tags],
-    likes: 0,
-    liked: false,
-    replies: []
-  })
-
-  lastAuthor.value = parts[0]
-  form.value = { name: '', sport: '', rating: 0, tags: [], text: '' }
-  submitting.value = false
-  showSuccess.value = true
-  activeFilter.value = 'all'
-  setTimeout(() => (showSuccess.value = false), 4000)
+  try {
+    await addFeedback({
+      name:   form.value.name.trim(),
+      sport:  form.value.sport,
+      rating: form.value.rating,
+      tags:   [...form.value.tags],
+      text:   form.value.text.trim(),
+      userId: currentUser.value?.uid ?? null,
+    })
+    lastAuthor.value   = form.value.name.trim().split(' ')[0]
+    form.value         = { name: '', sport: '', rating: 0, tags: [], text: '' }
+    showSuccess.value  = true
+    activeFilter.value = 'all'
+    await refresh()
+    setTimeout(() => (showSuccess.value = false), 4000)
+  } catch (e) {
+    console.error('[Feedback] submitComment error:', e)
+  } finally {
+    submitting.value = false
+  }
 }
 
 // ── Animations ────────────────────────────────────────
-const pageRef    = ref(null)
-const heroRef    = ref(null)
-const overviewRef= ref(null)
-const filtersRef = ref(null)
-const formRef    = ref(null)
+const pageRef     = ref(null)
+const heroRef     = ref(null)
+const overviewRef = ref(null)
+const filtersRef  = ref(null)
+const formRef     = ref(null)
 
-onMounted(() => {
+onMounted(async () => {
+  // Chargement initial Firestore
+  await fetchFeedbacks({ orderField: 'createdAt', orderDir: 'desc' })
+
+  // ✅ Réassignation complète pour déclencher la réactivité Vue
+  const uid = currentUser.value?.uid
+  if (uid) {
+    reviews.value = reviews.value.map(r => ({
+      ...r,
+      liked: (r.likedBy ?? []).includes(uid)
+    }))
+  }
+
+  // GSAP animations
   gsap.from(heroRef.value.children, {
-    y: 40, opacity: 0, duration: 0.9, stagger: 0.14, ease: 'power3.out', delay: 0.15
+    y: 40, opacity: 0, duration: 0.9,
+    stagger: 0.14, ease: 'power3.out', delay: 0.15,
   })
-
   gsap.from(overviewRef.value, {
     scrollTrigger: { trigger: overviewRef.value, start: 'top 82%' },
-    y: 50, opacity: 0, duration: 0.9, ease: 'power3.out'
+    y: 50, opacity: 0, duration: 0.9, ease: 'power3.out',
   })
-
   gsap.from('.bar-fill', {
     scrollTrigger: { trigger: overviewRef.value, start: 'top 75%' },
-    scaleX: 0, duration: 1.2, stagger: 0.1, ease: 'power3.out', transformOrigin: 'left'
+    scaleX: 0, duration: 1.2, stagger: 0.1,
+    ease: 'power3.out', transformOrigin: 'left',
   })
-
   gsap.from('.cloud-tag', {
     scrollTrigger: { trigger: '.overview-tags-cloud', start: 'top 85%' },
-    y: 14, opacity: 0, scale: 0.9, duration: 0.5, stagger: 0.05, ease: 'back.out(1.5)'
+    y: 14, opacity: 0, scale: 0.9,
+    duration: 0.5, stagger: 0.05, ease: 'back.out(1.5)',
   })
-
   gsap.from(filtersRef.value, {
     scrollTrigger: { trigger: filtersRef.value, start: 'top 88%' },
-    y: 24, opacity: 0, duration: 0.6, ease: 'power2.out'
+    y: 24, opacity: 0, duration: 0.6, ease: 'power2.out',
   })
-
   gsap.from('.comment-card', {
     scrollTrigger: { trigger: '.comments-grid', start: 'top 85%' },
-    y: 36, opacity: 0, duration: 0.65, stagger: 0.09, ease: 'power3.out'
+    y: 36, opacity: 0, duration: 0.65, stagger: 0.09, ease: 'power3.out',
   })
-
   gsap.from(formRef.value, {
     scrollTrigger: { trigger: formRef.value, start: 'top 88%' },
-    y: 50, opacity: 0, duration: 0.9, ease: 'power3.out'
+    y: 50, opacity: 0, duration: 0.9, ease: 'power3.out',
   })
 })
 </script>
+
 
 <style scoped>
 /* ─── Base ─── */
@@ -615,8 +638,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .filter-btn {
   font-size: 0.75rem; font-weight: 600; padding: 7px 18px; border-radius: 100px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.45); cursor: pointer;
-  transition: all 0.2s;
+  color: rgba(255,255,255,0.45); cursor: pointer; transition: all 0.2s;
 }
 .filter-btn:hover { border-color: rgba(186,242,216,0.25); color: rgba(186,242,216,0.8); }
 .filter-btn.active { background: rgba(186,242,216,0.1); border-color: rgba(186,242,216,0.4); color: #baf2d8; }
@@ -625,8 +647,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .search-wrap {
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 12px; padding: 8px 14px;
-  transition: border-color 0.2s;
+  border-radius: 12px; padding: 8px 14px; transition: border-color 0.2s;
 }
 .search-wrap:focus-within { border-color: rgba(186,242,216,0.3); }
 .search-wrap svg { color: rgba(255,255,255,0.3); flex-shrink: 0; }
@@ -648,7 +669,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .comments-grid {
   max-width: 1000px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 1rem;
-  margin-bottom: 80px;
+  margin-bottom: 32px;
 }
 
 .comment-card {
@@ -659,10 +680,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 }
 .comment-card:hover { border-color: rgba(186,242,216,0.18); transform: translateX(3px); }
 
-.comment-featured {
-  border-color: rgba(186,242,216,0.22);
-  background: rgba(186,242,216,0.035);
-}
+.comment-featured { border-color: rgba(186,242,216,0.22); background: rgba(186,242,216,0.035); }
 .comment-featured-badge {
   position: absolute; top: 20px; right: 20px;
   display: inline-flex; align-items: center; gap: 5px;
@@ -705,8 +723,7 @@ h1 em { font-style: italic; color: #baf2d8; }
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.28);
   background: none; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 100px; padding: 5px 12px; cursor: pointer;
-  transition: all 0.2s;
+  border-radius: 100px; padding: 5px 12px; cursor: pointer; transition: all 0.2s;
 }
 .action-btn:hover { color: rgba(186,242,216,0.8); border-color: rgba(186,242,216,0.2); }
 .like-btn.liked { color: #baf2d8; border-color: rgba(186,242,216,0.35); background: rgba(186,242,216,0.06); }
@@ -741,10 +758,29 @@ h1 em { font-style: italic; color: #baf2d8; }
 .reply-form button {
   background: rgba(186,242,216,0.1); border: 1px solid rgba(186,242,216,0.2);
   color: #baf2d8; border-radius: 10px; padding: 9px 14px; cursor: pointer;
-  display: flex; align-items: center;
-  transition: background 0.2s;
+  display: flex; align-items: center; transition: background 0.2s;
 }
 .reply-form button:hover { background: rgba(186,242,216,0.18); }
+
+/* Load more */
+.load-more {
+  max-width: 1000px; margin: 0 auto 48px;
+  display: flex; justify-content: center;
+}
+.btn-load-more {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 32px; border-radius: 100px;
+  background: rgba(186,242,216,0.08);
+  border: 1px solid rgba(186,242,216,0.2);
+  color: #baf2d8; font-size: 0.82rem; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: background 0.2s, transform 0.2s;
+}
+.btn-load-more:hover:not(:disabled) {
+  background: rgba(186,242,216,0.15);
+  transform: translateY(-2px);
+}
+.btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Empty state */
 .empty-state {
@@ -887,3 +923,4 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
   .form-submit-row { flex-direction: column; align-items: flex-start; }
 }
 </style>
+
