@@ -18,19 +18,19 @@
         <span class="h1-line">Ce que nos athlètes</span>
         <span class="h1-line"><em>pensent vraiment.</em></span>
       </h1>
-      <p class="hero-sub">{{ totalComments }} avis vérifiés · Mis à jour en temps réel</p>
+      <p class="hero-sub">{{ stats.totalCount }} avis vérifiés · Mis à jour en temps réel</p>
     </div>
 
     <!-- ── RATING OVERVIEW ── -->
     <div class="overview-block" ref="overviewRef">
 
       <div class="overview-score">
-        <span class="score-num">4.9</span>
+        <span class="score-num">{{ averageRatingDisplay }}</span>
         <div class="score-stars">
-          <span v-for="n in 5" :key="n" class="star filled">★</span>
+          <span v-for="n in 5" :key="n" class="star" :class="{ filled: n <= Math.round(averageRatingDisplay) }">★</span>
         </div>
         <span class="score-label">Note moyenne</span>
-        <span class="score-count">sur {{ totalComments }} avis</span>
+        <span class="score-count">sur {{ stats.totalCount }} avis</span>
       </div>
 
       <div class="overview-divider"></div>
@@ -99,7 +99,6 @@
           </div>
 
           <div class="comment-header">
-            <!-- Avatar : photo de profil ou initiales -->
             <div class="c-avatar" :style="{ '--hue': c.hue }">
               <img v-if="c.photoURL" :src="c.photoURL" :alt="c.name" class="c-avatar-img" @error="handleAvatarError($event)" />
               <span v-else>{{ c.initials }}</span>
@@ -344,7 +343,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { currentUser, authReady } from '@/stores/auth'
+import { currentUser } from '@/stores/auth'
 import { useFeedback } from '@/firebase/userFeedback.js'
 import { useUsers } from '@/firebase/user.js'
 
@@ -358,15 +357,38 @@ const {
   toggleLike: fbToggleLike,
   fetchReplies, addReply,
   fetchByUser,
+  fetchStats,
 } = useFeedback()
 
 const { fetchUser } = useUsers()
 
-// ── Profil utilisateur connecté ───────────────────────
-const currentUserProfile  = ref(null)
-const hasAlreadyReviewed  = ref(false)
+// ── Stats globales (/notice/--stats--) ────────────────
+const stats = ref({ totalCount: 0, ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
 
-// Helpers dérivés du profil courant
+// Note moyenne calculée depuis ratingCount
+const averageRatingDisplay = computed(() => {
+  const rc = stats.value.ratingCount
+  const total = Object.values(rc).reduce((s, v) => s + v, 0)
+  if (!total) return '—'
+  const sum = Object.entries(rc).reduce((s, [star, count]) => s + Number(star) * count, 0)
+  return (sum / total).toFixed(1)
+})
+
+// Barres de distribution calculées depuis ratingCount
+const ratingBars = computed(() => {
+  const rc    = stats.value.ratingCount
+  const total = Object.values(rc).reduce((s, v) => s + v, 0)
+  return [5, 4, 3, 2, 1].map(star => ({
+    stars: star,
+    count: rc[star] ?? 0,
+    pct:   total > 0 ? Math.round(((rc[star] ?? 0) / total) * 100) : 0,
+  }))
+})
+
+// ── Profil utilisateur connecté ───────────────────────
+const currentUserProfile = ref(null)
+const hasAlreadyReviewed = ref(false)
+
 const currentUserName = computed(() =>
   currentUserProfile.value?.username
   || currentUser.value?.displayName
@@ -385,20 +407,15 @@ const currentUserHue = computed(() => {
   return Math.abs(hash % 80) + 130
 })
 
-// Charge le profil Firestore + vérifie si l'user a déjà posté
 async function loadCurrentUserProfile(uid) {
   if (!uid) { currentUserProfile.value = null; hasAlreadyReviewed.value = false; return }
-
   currentUserProfile.value = await fetchUser(uid)
-
-  // Vérifie si un avis existe déjà pour cet UID
   const existing = await fetchByUser(uid)
   hasAlreadyReviewed.value = existing.length > 0
 }
 
 watch(currentUser, (user) => {
   loadCurrentUserProfile(user?.uid ?? null)
-  // Rafraîchit les états "liked" quand l'utilisateur change
   if (user?.uid) {
     reviews.value = reviews.value.map(r => ({
       ...r,
@@ -407,15 +424,7 @@ watch(currentUser, (user) => {
   }
 }, { immediate: false })
 
-// ── Données statiques UI ─────────────────────────────
-const ratingBars = [
-  { stars: 5, pct: 82, count: 2341 },
-  { stars: 4, pct: 12, count: 342  },
-  { stars: 3, pct: 4,  count: 114  },
-  { stars: 2, pct: 1,  count: 29   },
-  { stars: 1, pct: 1,  count: 28   },
-]
-
+// ── Tags cloud (statique) ─────────────────────────────
 const topTags = [
   { label: 'Motivation',  weight: 1.0  },
   { label: 'Interface',   weight: 0.9  },
@@ -429,27 +438,24 @@ const topTags = [
   { label: 'Running',     weight: 0.5  },
 ]
 
-// ── Computed ─────────────────────────────────────────
-const totalComments = computed(() => reviews.value.length + 2848)
-
 // ── Filters ──────────────────────────────────────────
 const activeFilter = ref('all')
 const searchQuery  = ref('')
 const sortBy       = ref('recent')
 
 const filters = [
-  { label: 'Tous',           value: 'all'      },
-  { label: '5 ★',            value: '5'        },
-  { label: '4 ★',            value: '4'        },
-  { label: '3 ★ et -',       value: 'low'      },
-  { label: 'Coups de cœur',  value: 'featured' },
+  { label: 'Tous',          value: 'all'      },
+  { label: '5 ★',           value: '5'        },
+  { label: '4 ★',           value: '4'        },
+  { label: '3 ★ et -',      value: 'low'      },
+  { label: 'Coups de cœur', value: 'featured' },
 ]
 
 const filteredComments = computed(() => {
   let list = reviews.value
 
-  if (activeFilter.value === 'featured')    list = list.filter(c => c.featured)
-  else if (activeFilter.value === 'low')    list = list.filter(c => c.rating <= 3)
+  if (activeFilter.value === 'featured')   list = list.filter(c => c.featured)
+  else if (activeFilter.value === 'low')   list = list.filter(c => c.rating <= 3)
   else if (activeFilter.value !== 'all') {
     const star = parseInt(activeFilter.value)
     list = list.filter(c => c.rating === star)
@@ -471,15 +477,11 @@ const filteredComments = computed(() => {
   return list
 })
 
-// Rechargement Firestore quand le tri change
 const fieldMap = { recent: 'createdAt', popular: 'likes', top: 'rating', low: 'rating' }
 const dirMap   = { recent: 'desc',      popular: 'desc',  top: 'desc',   low: 'asc'   }
 
 watch(sortBy, (val) => {
-  fetchFeedbacks({
-    orderField: fieldMap[val] ?? 'createdAt',
-    orderDir:   dirMap[val]   ?? 'desc',
-  })
+  fetchFeedbacks({ orderField: fieldMap[val] ?? 'createdAt', orderDir: dirMap[val] ?? 'desc' })
 })
 
 // ── Likes ─────────────────────────────────────────────
@@ -508,10 +510,7 @@ const repliesMap  = ref({})
 
 async function openReply(c) {
   if (!currentUser.value) return
-  if (replyTarget.value === c.id) {
-    replyTarget.value = null
-    return
-  }
+  if (replyTarget.value === c.id) { replyTarget.value = null; return }
   replyTarget.value = c.id
   if (!repliesMap.value[c.id]) {
     repliesMap.value[c.id] = await fetchReplies(c.id)
@@ -520,8 +519,8 @@ async function openReply(c) {
 
 async function submitReply(c) {
   if (!replyText.value.trim() || !currentUser.value) return
-  const uid  = currentUser.value.uid
-  const name = currentUserName.value
+  const uid      = currentUser.value.uid
+  const name     = currentUserName.value
   const photoURL = currentUserProfile.value?.photoURL ?? null
   await addReply(c.id, { name, text: replyText.value.trim(), userId: uid, photoURL })
   repliesMap.value[c.id] = await fetchReplies(c.id)
@@ -529,9 +528,7 @@ async function submitReply(c) {
   replyTarget.value = null
 }
 
-// ── Gestion erreur avatar ─────────────────────────────
 function handleAvatarError(event) {
-  // Cache l'image cassée pour afficher les initiales en fallback
   event.target.style.display = 'none'
 }
 
@@ -574,11 +571,20 @@ async function submitComment() {
       userId: currentUser.value.uid,
     })
 
-    lastAuthor.value        = name.split(' ')[0]
-    form.value              = { sport: '', rating: 0, tags: [], text: '' }
+    // Mise à jour locale immédiate des stats sans refetch
+    stats.value = {
+      totalCount: stats.value.totalCount + 1,
+      ratingCount: {
+        ...stats.value.ratingCount,
+        [form.value.rating]: (stats.value.ratingCount[form.value.rating] ?? 0) + 1,
+      },
+    }
+
+    lastAuthor.value         = name.split(' ')[0]
+    form.value               = { sport: '', rating: 0, tags: [], text: '' }
     hasAlreadyReviewed.value = true
-    showSuccess.value       = true
-    activeFilter.value      = 'all'
+    showSuccess.value        = true
+    activeFilter.value       = 'all'
     await refresh()
     setTimeout(() => (showSuccess.value = false), 4000)
   } catch (e) {
@@ -596,7 +602,12 @@ const filtersRef  = ref(null)
 const formRef     = ref(null)
 
 onMounted(async () => {
-  await fetchFeedbacks({ orderField: 'createdAt', orderDir: 'desc' })
+  // Chargement parallèle : avis + stats + profil user
+  const [, statsData] = await Promise.all([
+    fetchFeedbacks({ orderField: 'createdAt', orderDir: 'desc' }),
+    fetchStats(),
+  ])
+  stats.value = statsData
 
   const uid = currentUser.value?.uid
   if (uid) {
@@ -703,7 +714,8 @@ h1 em { font-style: italic; color: #baf2d8; }
 
 .overview-score { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; }
 .score-num { font-size: 4rem; font-weight: 800; color: #baf2d8; line-height: 1; letter-spacing: -0.04em; }
-.score-stars .star { font-size: 1rem; color: #baf2d8; }
+.score-stars .star { font-size: 1rem; color: rgba(255,255,255,0.12); }
+.score-stars .star.filled { color: #baf2d8; }
 .score-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 .score-count { font-size: 0.68rem; color: rgba(255,255,255,0.25); }
 
@@ -712,7 +724,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .mini-star { font-size: 0.6rem; color: rgba(255,255,255,0.1); }
 .mini-star.on { color: #baf2d8; }
 .bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.07); border-radius: 10px; overflow: hidden; }
-.bar-fill { height: 100%; background: linear-gradient(90deg, #baf2d8, #6ee7b7); border-radius: 10px; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, #baf2d8, #6ee7b7); border-radius: 10px; transition: width 0.8s ease; }
 .bar-count { font-size: 0.65rem; color: rgba(255,255,255,0.25); width: 36px; text-align: right; flex-shrink: 0; }
 
 .overview-tags-cloud { flex: 1; }
@@ -791,7 +803,6 @@ h1 em { font-style: italic; color: #baf2d8; }
 
 .comment-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
 
-/* ─── Avatar (commun card + reply) ─── */
 .c-avatar {
   width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, hsl(calc(var(--hue)), 45%, 20%), hsl(calc(var(--hue)), 55%, 12%));
@@ -886,16 +897,11 @@ h1 em { font-style: italic; color: #baf2d8; }
 .btn-load-more {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 12px 32px; border-radius: 100px;
-  background: rgba(186,242,216,0.08);
-  border: 1px solid rgba(186,242,216,0.2);
+  background: rgba(186,242,216,0.08); border: 1px solid rgba(186,242,216,0.2);
   color: #baf2d8; font-size: 0.82rem; font-weight: 700;
-  cursor: pointer; font-family: inherit;
-  transition: background 0.2s, transform 0.2s;
+  cursor: pointer; font-family: inherit; transition: background 0.2s, transform 0.2s;
 }
-.btn-load-more:hover:not(:disabled) {
-  background: rgba(186,242,216,0.15);
-  transform: translateY(-2px);
-}
+.btn-load-more:hover:not(:disabled) { background: rgba(186,242,216,0.15); transform: translateY(-2px); }
 .btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Empty state */
@@ -920,7 +926,6 @@ h1 em { font-style: italic; color: #baf2d8; }
 .write-header h2 { font-size: 1.3rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
 .write-header p { font-size: 0.82rem; color: rgba(255,255,255,0.35); margin: 0; }
 
-/* ─── Auth gate ─── */
 .auth-gate {
   display: flex; flex-direction: column; align-items: center;
   gap: 12px; padding: 48px 24px; text-align: center;
@@ -928,8 +933,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .auth-gate-icon {
   width: 56px; height: 56px; border-radius: 16px;
   background: rgba(186,242,216,0.05); border: 1px solid rgba(186,242,216,0.12);
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 4px;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
 }
 .auth-gate-title { font-size: 1rem; font-weight: 700; color: #fff; margin: 0; }
 .auth-gate-sub { font-size: 0.82rem; color: rgba(255,255,255,0.35); margin: 0; max-width: 360px; }
@@ -937,31 +941,24 @@ h1 em { font-style: italic; color: #baf2d8; }
   margin-top: 8px; display: inline-flex; align-items: center;
   padding: 12px 30px; border-radius: 12px;
   background: #baf2d8; color: #0a1f2e;
-  font-size: 0.87rem; font-weight: 800;
-  text-decoration: none;
+  font-size: 0.87rem; font-weight: 800; text-decoration: none;
   transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
 }
 .btn-auth:hover { background: #cef7e8; transform: translateY(-2px); }
 
-/* ─── Already reviewed ─── */
 .already-reviewed {
-  padding: 28px 32px;
-  background: rgba(186,242,216,0.05);
-  border: 1px solid rgba(186,242,216,0.2);
-  border-radius: 16px;
+  padding: 28px 32px; background: rgba(186,242,216,0.05);
+  border: 1px solid rgba(186,242,216,0.2); border-radius: 16px;
 }
 .already-reviewed-inner { display: flex; align-items: flex-start; gap: 16px; }
 .already-reviewed-inner svg { flex-shrink: 0; margin-top: 2px; }
 .already-reviewed-title { font-size: 0.92rem; font-weight: 700; color: #baf2d8; margin: 0 0 4px; }
 .already-reviewed-sub { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0; }
 
-/* ─── User identity (remplace le champ nom) ─── */
 .user-identity {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 18px; margin-bottom: 28px;
-  background: rgba(186,242,216,0.04);
-  border: 1px solid rgba(186,242,216,0.12);
-  border-radius: 14px;
+  background: rgba(186,242,216,0.04); border: 1px solid rgba(186,242,216,0.12); border-radius: 14px;
 }
 .user-identity-avatar {
   width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
@@ -977,7 +974,6 @@ h1 em { font-style: italic; color: #baf2d8; }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
 .form-col { display: flex; flex-direction: column; }
-
 .form-group { display: flex; flex-direction: column; gap: 9px; margin-bottom: 22px; position: relative; }
 label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.38); }
 .req { color: rgba(186,242,216,0.7); }
@@ -995,7 +991,6 @@ input:focus, textarea:focus { border-color: rgba(186,242,216,0.4); background: r
 input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .err-msg { font-size: 0.67rem; color: rgba(255,120,120,0.9); }
 
-/* Sport picker */
 .sport-picker { display: flex; flex-wrap: wrap; gap: 7px; }
 .sport-btn {
   font-size: 0.7rem; font-weight: 600; padding: 5px 14px; border-radius: 100px;
@@ -1005,7 +1000,6 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .sport-btn:hover { border-color: rgba(186,242,216,0.25); color: rgba(186,242,216,0.7); }
 .sport-btn.active { background: rgba(186,242,216,0.1); border-color: rgba(186,242,216,0.4); color: #baf2d8; }
 
-/* Star picker */
 .star-picker { display: flex; align-items: center; gap: 4px; }
 .star-btn {
   font-size: 1.6rem; color: rgba(255,255,255,0.1); background: none; border: none;
@@ -1016,7 +1010,6 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .star-btn:hover { transform: scale(1.2); }
 .star-label { font-size: 0.72rem; font-weight: 700; color: rgba(186,242,216,0.7); margin-left: 8px; }
 
-/* Tag picker */
 .tag-picker { display: flex; flex-wrap: wrap; gap: 7px; }
 .tag-btn {
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
@@ -1031,13 +1024,12 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .char-count { font-size: 0.65rem; color: rgba(255,255,255,0.2); margin-left: auto; }
 .char-count.over { color: rgba(255,120,120,0.8); }
 
-/* Submit */
 .form-submit-row { display: flex; align-items: center; gap: 20px; margin-top: 8px; }
 .btn-submit {
   padding: 14px 36px; border-radius: 14px;
-  background: #baf2d8; color: #0a1f2e;
-  border: none; font-size: 0.9rem; font-weight: 800;
-  cursor: pointer; transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+  background: #baf2d8; color: #0a1f2e; border: none;
+  font-size: 0.9rem; font-weight: 800; cursor: pointer;
+  transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
 }
 .btn-submit:hover:not(:disabled) {
   background: #cef7e8; transform: translateY(-2px);
@@ -1053,11 +1045,9 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Toast */
 .success-toast {
   margin-top: 18px; padding: 13px 22px; border-radius: 14px;
-  background: #baf2d8; color: #0a1f2e;
-  font-size: 0.87rem; font-weight: 700;
+  background: #baf2d8; color: #0a1f2e; font-size: 0.87rem; font-weight: 700;
   display: inline-flex; align-items: center; gap: 10px;
 }
 
@@ -1066,9 +1056,6 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .fade-block-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-block-leave-active { transition: opacity 0.2s ease; }
 .fade-block-leave-to { opacity: 0; }
-
-
-
 
 .reply-slide-enter-active { transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 .reply-slide-enter-from { opacity: 0; transform: translateY(-10px); }

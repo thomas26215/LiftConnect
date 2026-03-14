@@ -164,78 +164,19 @@ export function useFeedback() {
     lastDoc = snap.docs[snap.docs.length - 1]
     if (snap.docs.length < pageSize.value) hasMore.value = false
 
-    const raw      = snap.docs.map(d => ({ ...d.data(), id: d.id }))
-    const enriched = await Promise.all(raw.map(fb => enrichWithUserStats(fb)))
+    // ✅ Toutes les infos sont déjà dans le document /notice — pas de getDoc cross-collection
+    const page = snap.docs.map(d => ({
+      ...d.data(),
+      id:    d.id,
+      date:  formatDate(d.data().createdAt),
+      liked: false,
+    }))
 
-    // ✅ Réassignation au lieu de push — déclenche la réactivité Vue
-    reviews.value = [...reviews.value, ...enriched]
+    reviews.value = [...reviews.value, ...page]
   }
 
   async function refresh() {
     await fetchFeedbacks({ orderField: currentOrder.field, orderDir: currentOrder.dir })
-  }
-
-  // ─────────────────────────────────────────────────────────
-  // READ — Stats utilisateur
-  // ─────────────────────────────────────────────────────────
-
-  async function enrichWithUserStats(feedback) {
-    const enriched = {
-      ...feedback,
-      date:                 formatDate(feedback.createdAt),
-      totalTrainingMinutes: null,
-      totalSessions:        null,
-      streakDays:           0,
-      memberSince:          null,
-      liked:                false,
-    }
-
-    if (!feedback.userId) return enriched
-
-    try {
-      const statsSnap = await getDoc(doc(db, 'users', feedback.userId, 'stats', 'summary'))
-      if (statsSnap.exists()) {
-        const stats = statsSnap.data()
-        enriched.totalTrainingMinutes = stats.totalTrainingMinutes ?? null
-        enriched.totalSessions        = stats.totalSessions        ?? null
-        enriched.streakDays           = stats.streakDays           ?? 0
-      }
-
-      const userSnap = await getDoc(doc(db, 'users', feedback.userId))
-      if (userSnap.exists()) {
-        enriched.memberSince = formatMemberSince(userSnap.data().createdAt)
-        // ✅ Toujours synchroniser la photoURL depuis le profil utilisateur
-        enriched.photoURL = userSnap.data().photoURL ?? feedback.photoURL ?? null
-      }
-    } catch (e) {
-      console.warn(`[useFeedback] Stats introuvables pour userId=${feedback.userId}`, e)
-    }
-
-    return enriched
-  }
-
-  async function fetchUserStats(uid) {
-    if (!uid) return null
-    try {
-      const [statsSnap, userSnap] = await Promise.all([
-        getDoc(doc(db, 'users', uid, 'stats', 'summary')),
-        getDoc(doc(db, 'users', uid)),
-      ])
-
-      const stats = statsSnap.exists() ? statsSnap.data() : {}
-      const user  = userSnap.exists()  ? userSnap.data()  : {}
-
-      return {
-        totalTrainingMinutes:   stats.totalTrainingMinutes  ?? null,
-        totalSessions:          stats.totalSessions         ?? null,
-        streakDays:             stats.streakDays            ?? 0,
-        memberSince:            formatMemberSince(user.createdAt),
-        totalTrainingFormatted: formatTrainingTime(stats.totalTrainingMinutes ?? null),
-      }
-    } catch (e) {
-      console.error('[useFeedback] fetchUserStats error:', e)
-      return null
-    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -253,7 +194,18 @@ export function useFeedback() {
    * @returns {Promise<string>} L'ID du document créé (= userId)
    */
   async function addFeedback(payload) {
-    const { name, sport, rating, tags, text, userId = null, photoURL = null } = payload
+    const {
+      name, sport, rating, tags, text,
+      userId       = null,
+      photoURL     = null,
+      // Infos user stockées directement dans /notice
+      memberSince          = null,
+      totalTrainingMinutes = null,
+      totalSessions        = null,
+      streakDays           = 0,
+      level                = null,
+      location             = null,
+    } = payload
 
     // Un userId est obligatoire pour que l'ID du document soit défini
     if (!userId) throw new Error('[useFeedback] addFeedback: userId est requis')
@@ -271,6 +223,14 @@ export function useFeedback() {
       featured:  false,
       likes:     0,
       likedBy:   [],
+      // ✅ Snapshot des infos user au moment de la publication
+      // → plus aucun getDoc cross-collection à l'affichage
+      memberSince,
+      totalTrainingMinutes,
+      totalSessions,
+      streakDays,
+      level,
+      location,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
@@ -278,6 +238,24 @@ export function useFeedback() {
     try {
       // ✅ setDoc avec l'UID comme ID de document (au lieu de addDoc)
       await setDoc(doc(db, 'notice', userId), docData)
+
+      // ✅ Mise à jour atomique des compteurs dans /notice/--stats--
+      // updateDoc avec notation pointée crée correctement l'objet imbriqué
+      // { ratingCount: { 5: 1 } } et non le champ plat "ratingCount.5"
+      const statsRef  = doc(db, 'notice', '--stats--')
+      const statsSnap = await getDoc(statsRef)
+      if (statsSnap.exists()) {
+        await updateDoc(statsRef, {
+          totalCount:                  increment(1),
+          [`ratingCount.${rating}`]:   increment(1),
+        })
+      } else {
+        await setDoc(statsRef, {
+          totalCount:  1,
+          ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, [rating]: 1 },
+        })
+      }
+
       return userId
     } catch (e) {
       console.error('[useFeedback] addFeedback error:', e)
@@ -337,9 +315,20 @@ export function useFeedback() {
 
   async function deleteFeedback(noticeId) {
     try {
+      const snap = await getDoc(doc(db, 'notice', noticeId))
+      const rating = snap.exists() ? snap.data().rating : null
+
       const repliesSnap = await getDocs(collection(db, 'notice', noticeId, 'replies'))
       await Promise.all(repliesSnap.docs.map(d => deleteDoc(d.ref)))
       await deleteDoc(doc(db, 'notice', noticeId))
+
+      // ✅ Décrémente les compteurs avec updateDoc (notation pointée correcte)
+      if (rating) {
+        await updateDoc(doc(db, 'notice', '--stats--'), {
+          totalCount:                  increment(-1),
+          [`ratingCount.${rating}`]:   increment(-1),
+        })
+      }
     } catch (e) {
       console.error('[useFeedback] deleteFeedback error:', e)
       throw e
@@ -444,6 +433,43 @@ export function useFeedback() {
   }
 
   // ─────────────────────────────────────────────────────────
+  // STATS GLOBALES
+  // ─────────────────────────────────────────────────────────
+
+  /**
+   * Lit le document /notice/--stats-- qui contient :
+   *   - totalCount        : nombre total d'avis
+   *   - ratingCount.1..5  : nombre d'avis par étoile
+   *
+   * @returns {Promise<{ totalCount: number, ratingCount: Record<string,number> }>}
+   */
+  async function fetchStats() {
+    try {
+      const snap = await getDoc(doc(db, 'notice', '--stats--'))
+      if (!snap.exists()) return { totalCount: 0, ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
+      const data = snap.data()
+
+      // Firestore stocke correctement { ratingCount: { 5: 1 } }
+      // quand updateDoc est utilisé avec notation pointée
+      const rc = data.ratingCount ?? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+
+      return {
+        totalCount:  data.totalCount ?? 0,
+        ratingCount: {
+          1: rc[1] ?? 0,
+          2: rc[2] ?? 0,
+          3: rc[3] ?? 0,
+          4: rc[4] ?? 0,
+          5: rc[5] ?? 0,
+        },
+      }
+    } catch (e) {
+      console.error('[useFeedback] fetchStats error:', e)
+      return { totalCount: 0, ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
   // Expose
   // ─────────────────────────────────────────────────────────
 
@@ -461,8 +487,6 @@ export function useFeedback() {
     hasMore,
     loadingMore,
 
-    fetchUserStats,
-
     addFeedback,
     deleteFeedback,
 
@@ -478,6 +502,7 @@ export function useFeedback() {
     fetchByRating,
     fetchFeatured,
     fetchByUser,
+    fetchStats,
 
     formatTrainingTime,
     formatDate,
