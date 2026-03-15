@@ -165,6 +165,7 @@ export function useFeedback() {
     if (snap.docs.length < pageSize.value) hasMore.value = false
 
     // ✅ Toutes les infos sont déjà dans le document /notice — pas de getDoc cross-collection
+    // title est inclus via ...d.data()
     const page = snap.docs.map(d => ({
       ...d.data(),
       id:    d.id,
@@ -190,11 +191,12 @@ export function useFeedback() {
    * si l'utilisateur tente de soumettre à nouveau, mais la page
    * bloque déjà la soumission en amont via hasAlreadyReviewed).
    *
-   * @param {object} payload - { name, sport, rating, tags, text, userId, photoURL? }
+   * @param {object} payload - { title, name, sport, rating, tags, text, userId, photoURL? }
    * @returns {Promise<string>} L'ID du document créé (= userId)
    */
   async function addFeedback(payload) {
     const {
+      title = '',
       name, sport, rating, tags, text,
       userId       = null,
       photoURL     = null,
@@ -218,6 +220,7 @@ export function useFeedback() {
       photoURL,
       sport:     sport || '',
       rating,
+      title:     title.trim(),
       text:      text.trim(),
       tags:      tags ?? [],
       featured:  false,

@@ -113,6 +113,9 @@
             </div>
           </div>
 
+          <!-- Titre du commentaire -->
+          <p class="c-title" v-if="c.title">{{ c.title }}</p>
+
           <p class="c-text">{{ c.text }}</p>
 
           <div class="c-footer">
@@ -291,6 +294,16 @@
               </div>
 
               <div class="form-group">
+                <label>Titre <span class="optional">(optionnel)</span></label>
+                <input
+                  v-model="form.title"
+                  type="text"
+                  placeholder="Résumez votre avis en quelques mots…"
+                  maxlength="100"
+                />
+              </div>
+
+              <div class="form-group">
                 <label>Votre commentaire <span class="req">*</span></label>
                 <textarea
                   v-model="form.text"
@@ -466,6 +479,7 @@ const filteredComments = computed(() => {
     list = list.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.text.toLowerCase().includes(q) ||
+      (c.title ?? '').toLowerCase().includes(q) ||
       (c.tags ?? []).some(t => t.toLowerCase().includes(q))
     )
   }
@@ -537,7 +551,7 @@ const sportOptions  = ['Musculation', 'CrossFit', 'Running', 'Natation', 'Yoga',
 const availableTags = ['Motivation', 'Interface', 'Communauté', 'Programmes', 'Défis', 'Progression', 'Coaching', 'Suivi', 'Musculation', 'Running', 'Natation', 'CrossFit']
 const starLabels    = ['Décevant', 'Passable', 'Correct', 'Très bien', 'Excellent !']
 
-const form        = ref({ sport: '', rating: 0, tags: [], text: '' })
+const form        = ref({ sport: '', rating: 0, tags: [], title: '', text: '' })
 const errors      = ref({ rating: false, text: false })
 const hoverRating = ref(0)
 const submitting  = ref(false)
@@ -567,6 +581,7 @@ async function submitComment() {
       sport:  form.value.sport,
       rating: form.value.rating,
       tags:   [...form.value.tags],
+      title:  form.value.title,
       text:   form.value.text.trim(),
       userId: currentUser.value.uid,
     })
@@ -581,7 +596,7 @@ async function submitComment() {
     }
 
     lastAuthor.value         = name.split(' ')[0]
-    form.value               = { sport: '', rating: 0, tags: [], text: '' }
+    form.value               = { sport: '', rating: 0, tags: [], title: '', text: '' }
     hasAlreadyReviewed.value = true
     showSuccess.value        = true
     activeFilter.value       = 'all'
@@ -801,7 +816,7 @@ h1 em { font-style: italic; color: #baf2d8; }
   border-radius: 100px; padding: 4px 10px;
 }
 
-.comment-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.comment-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
 
 .c-avatar {
   width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
@@ -828,6 +843,15 @@ h1 em { font-style: italic; color: #baf2d8; }
 .c-rating { flex-shrink: 0; display: flex; gap: 1px; }
 .c-rating .star { font-size: 0.78rem; color: rgba(255,255,255,0.12); }
 .c-rating .star.filled { color: #baf2d8; }
+
+/* Titre du commentaire */
+.c-title {
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
 
 .c-text { font-size: 0.88rem; color: rgba(255,255,255,0.62); line-height: 1.78; margin-bottom: 16px; }
 
