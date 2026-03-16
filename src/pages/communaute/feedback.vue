@@ -201,7 +201,10 @@
           </div>
           <p class="auth-gate-title">Connectez-vous pour laisser un avis</p>
           <p class="auth-gate-sub">Seuls les membres LiftConnect peuvent partager leur expérience.</p>
-          <a href="/login" class="btn-auth">Se connecter</a>
+          <RouterLink :to="{ name: 'login' }" class="btn-auth">
+  Se connecter
+</RouterLink>
+
         </div>
       </Transition>
 
