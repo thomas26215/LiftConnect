@@ -164,8 +164,7 @@ export function useFeedback() {
     lastDoc = snap.docs[snap.docs.length - 1]
     if (snap.docs.length < pageSize.value) hasMore.value = false
 
-    // ✅ Toutes les infos sont déjà dans le document /notice — pas de getDoc cross-collection
-    // title est inclus via ...d.data()
+    // ✅ title inclus via ...d.data()
     const page = snap.docs.map(d => ({
       ...d.data(),
       id:    d.id,
@@ -187,9 +186,7 @@ export function useFeedback() {
   /**
    * Crée un avis dans /notice.
    * L'ID du document est l'UID de l'utilisateur — ce qui garantit
-   * nativement qu'un seul avis existe par membre (setDoc écrase
-   * si l'utilisateur tente de soumettre à nouveau, mais la page
-   * bloque déjà la soumission en amont via hasAlreadyReviewed).
+   * nativement qu'un seul avis existe par membre.
    *
    * @param {object} payload - { title, name, sport, rating, tags, text, userId, photoURL? }
    * @returns {Promise<string>} L'ID du document créé (= userId)
@@ -209,7 +206,6 @@ export function useFeedback() {
       location             = null,
     } = payload
 
-    // Un userId est obligatoire pour que l'ID du document soit défini
     if (!userId) throw new Error('[useFeedback] addFeedback: userId est requis')
 
     const docData = {
@@ -227,7 +223,6 @@ export function useFeedback() {
       likes:     0,
       likedBy:   [],
       // ✅ Snapshot des infos user au moment de la publication
-      // → plus aucun getDoc cross-collection à l'affichage
       memberSince,
       totalTrainingMinutes,
       totalSessions,
@@ -239,12 +234,10 @@ export function useFeedback() {
     }
 
     try {
-      // ✅ setDoc avec l'UID comme ID de document (au lieu de addDoc)
+      // ✅ setDoc avec l'UID comme ID de document
       await setDoc(doc(db, 'notice', userId), docData)
 
       // ✅ Mise à jour atomique des compteurs dans /notice/--stats--
-      // updateDoc avec notation pointée crée correctement l'objet imbriqué
-      // { ratingCount: { 5: 1 } } et non le champ plat "ratingCount.5"
       const statsRef  = doc(db, 'notice', '--stats--')
       const statsSnap = await getDoc(statsRef)
       if (statsSnap.exists()) {
@@ -262,6 +255,48 @@ export function useFeedback() {
       return userId
     } catch (e) {
       console.error('[useFeedback] addFeedback error:', e)
+      throw e
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // UPDATE — Modifier son avis
+  // ─────────────────────────────────────────────────────────
+
+  /**
+   * Met à jour les champs éditables d'un avis existant.
+   * Gère la mise à jour atomique des compteurs si la note change.
+   *
+   * @param {string} userId    - ID du document (= userId)
+   * @param {object} payload   - { title?, sport?, rating?, tags?, text? }
+   * @param {number} oldRating - ancienne note (pour corriger les compteurs si elle change)
+   */
+  async function updateFeedback(userId, payload, oldRating) {
+    if (!userId) throw new Error('[useFeedback] updateFeedback: userId est requis')
+
+    const { title = '', sport, rating, tags, text } = payload
+
+    const updates = {
+      title:     title.trim(),
+      sport:     sport || '',
+      rating,
+      tags:      tags ?? [],
+      text:      text.trim(),
+      updatedAt: serverTimestamp(),
+    }
+
+    try {
+      await updateDoc(doc(db, 'notice', userId), updates)
+
+      // ✅ Mise à jour atomique des compteurs uniquement si la note a changé
+      if (rating !== oldRating) {
+        await updateDoc(doc(db, 'notice', '--stats--'), {
+          [`ratingCount.${oldRating}`]: increment(-1),
+          [`ratingCount.${rating}`]:    increment(1),
+        })
+      }
+    } catch (e) {
+      console.error('[useFeedback] updateFeedback error:', e)
       throw e
     }
   }
@@ -318,14 +353,15 @@ export function useFeedback() {
 
   async function deleteFeedback(noticeId) {
     try {
-      const snap = await getDoc(doc(db, 'notice', noticeId))
+      const snap   = await getDoc(doc(db, 'notice', noticeId))
       const rating = snap.exists() ? snap.data().rating : null
 
+      // Supprime toutes les réponses avant le document parent
       const repliesSnap = await getDocs(collection(db, 'notice', noticeId, 'replies'))
       await Promise.all(repliesSnap.docs.map(d => deleteDoc(d.ref)))
       await deleteDoc(doc(db, 'notice', noticeId))
 
-      // ✅ Décrémente les compteurs avec updateDoc (notation pointée correcte)
+      // ✅ Décrémente les compteurs
       if (rating) {
         await updateDoc(doc(db, 'notice', '--stats--'), {
           totalCount:                  increment(-1),
@@ -452,8 +488,6 @@ export function useFeedback() {
       if (!snap.exists()) return { totalCount: 0, ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } }
       const data = snap.data()
 
-      // Firestore stocke correctement { ratingCount: { 5: 1 } }
-      // quand updateDoc est utilisé avec notation pointée
       const rc = data.ratingCount ?? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
 
       return {
@@ -491,6 +525,7 @@ export function useFeedback() {
     loadingMore,
 
     addFeedback,
+    updateFeedback,
     deleteFeedback,
 
     toggleLike,

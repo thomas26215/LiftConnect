@@ -111,6 +111,15 @@
             <div class="c-rating">
               <span v-for="n in 5" :key="n" class="star" :class="{ filled: n <= c.rating }">★</span>
             </div>
+            <!-- Actions auteur : modifier + supprimer -->
+            <div v-if="currentUser && c.userId === currentUser.uid" class="owner-actions">
+              <button class="owner-btn owner-btn--edit" @click="startEdit(c)" title="Modifier mon avis">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="owner-btn owner-btn--delete" @click="confirmDelete(c)" title="Supprimer mon avis">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
           </div>
 
           <!-- Titre du commentaire -->
@@ -178,15 +187,15 @@
 
     </div>
 
-    <!-- ── WRITE A REVIEW ── -->
+    <!-- ── WRITE / EDIT A REVIEW ── -->
     <div class="write-review" ref="formRef">
       <div class="write-header">
         <div class="write-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#baf2d8" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </div>
         <div>
-          <h2>Partagez votre expérience</h2>
-          <p>Votre avis aide la communauté à progresser.</p>
+          <h2>{{ isEditing ? 'Modifier votre avis' : 'Partagez votre expérience' }}</h2>
+          <p>{{ isEditing ? 'Mettez à jour votre avis ci-dessous.' : 'Votre avis aide la communauté à progresser.' }}</p>
         </div>
       </div>
 
@@ -201,29 +210,26 @@
           </div>
           <p class="auth-gate-title">Connectez-vous pour laisser un avis</p>
           <p class="auth-gate-sub">Seuls les membres LiftConnect peuvent partager leur expérience.</p>
-          <RouterLink :to="{ name: 'login' }" class="btn-auth">
-  Se connecter
-</RouterLink>
-
+          <RouterLink :to="{ name: 'login' }" class="btn-auth">Se connecter</RouterLink>
         </div>
       </Transition>
 
-      <!-- ── État : avis déjà posté ── -->
+      <!-- ── État : avis déjà posté (lecture seule, pas en mode édition) ── -->
       <Transition name="fade-block">
-        <div class="already-reviewed" v-if="currentUser && hasAlreadyReviewed">
+        <div class="already-reviewed" v-if="currentUser && hasAlreadyReviewed && !isEditing">
           <div class="already-reviewed-inner">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#baf2d8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             <div>
               <p class="already-reviewed-title">Vous avez déjà posté un avis</p>
-              <p class="already-reviewed-sub">Merci pour votre retour, {{ currentUserProfile?.username || currentUser.displayName }} ! Un seul avis est autorisé par membre.</p>
+              <p class="already-reviewed-sub">Merci pour votre retour, {{ currentUserProfile?.username || currentUser.displayName }} ! Vous pouvez modifier ou supprimer votre avis depuis la liste.</p>
             </div>
           </div>
         </div>
       </Transition>
 
-      <!-- ── Formulaire (connecté + pas encore d'avis) ── -->
+      <!-- ── Formulaire (nouveau ou édition) ── -->
       <Transition name="fade-block">
-        <div v-if="currentUser && !hasAlreadyReviewed">
+        <div v-if="currentUser && (!hasAlreadyReviewed || isEditing)">
 
           <!-- Identité automatique (lecture seule) -->
           <div class="user-identity">
@@ -239,7 +245,7 @@
             </div>
             <div class="user-identity-info">
               <span class="user-identity-name">{{ currentUserProfile?.username || currentUser.displayName || 'Anonyme' }}</span>
-              <span class="user-identity-label">Votre avis sera publié sous ce nom</span>
+              <span class="user-identity-label">{{ isEditing ? 'Modification de votre avis' : 'Votre avis sera publié sous ce nom' }}</span>
             </div>
           </div>
 
@@ -328,22 +334,23 @@
             <button class="btn-submit" @click="submitComment" :disabled="submitting">
               <Transition name="btn-content" mode="out-in">
                 <span v-if="!submitting" class="btn-inner" key="label">
-                  Publier mon avis
+                  {{ isEditing ? 'Enregistrer les modifications' : 'Publier mon avis' }}
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </span>
                 <span v-else class="btn-inner" key="loading">
                   <span class="spinner"></span>
-                  Publication…
+                  {{ isEditing ? 'Mise à jour…' : 'Publication…' }}
                 </span>
               </Transition>
             </button>
-            <p class="form-note">Votre avis sera visible immédiatement.</p>
+            <button v-if="isEditing" class="btn-cancel" @click="cancelEdit">Annuler</button>
+            <p class="form-note" v-if="!isEditing">Votre avis sera visible immédiatement.</p>
           </div>
 
           <Transition name="toast-slide">
             <div class="success-toast" v-if="showSuccess">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a1f2e" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Merci {{ lastAuthor }} ! Votre avis a bien été publié.
+              {{ isEditing ? 'Avis mis à jour avec succès !' : `Merci ${lastAuthor} ! Votre avis a bien été publié.` }}
             </div>
           </Transition>
 
@@ -351,6 +358,26 @@
       </Transition>
 
     </div>
+
+    <!-- ── MODALE DE CONFIRMATION SUPPRESSION ── -->
+    <Transition name="modal-fade">
+      <div class="modal-overlay" v-if="deleteTarget" @click.self="deleteTarget = null">
+        <div class="modal">
+          <div class="modal-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,100,100,0.8)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </div>
+          <h3>Supprimer votre avis ?</h3>
+          <p>Cette action est irréversible. Votre avis et toutes ses réponses seront définitivement supprimés.</p>
+          <div class="modal-actions">
+            <button class="modal-btn modal-btn--cancel" @click="deleteTarget = null">Annuler</button>
+            <button class="modal-btn modal-btn--confirm" @click="executeDelete" :disabled="deleting">
+              <span class="spinner spinner--red" v-if="deleting"></span>
+              <span v-else>Supprimer définitivement</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
   </section>
 </template>
@@ -370,6 +397,8 @@ const {
   reviews, loading, loadingMore, hasMore,
   fetchFeedbacks, fetchNextPage, refresh,
   addFeedback,
+  updateFeedback,
+  deleteFeedback,
   toggleLike: fbToggleLike,
   fetchReplies, addReply,
   fetchByUser,
@@ -381,7 +410,6 @@ const { fetchUser } = useUsers()
 // ── Stats globales (/notice/--stats--) ────────────────
 const stats = ref({ totalCount: 0, ratingCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } })
 
-// Note moyenne calculée depuis ratingCount
 const averageRatingDisplay = computed(() => {
   const rc = stats.value.ratingCount
   const total = Object.values(rc).reduce((s, v) => s + v, 0)
@@ -390,7 +418,6 @@ const averageRatingDisplay = computed(() => {
   return (sum / total).toFixed(1)
 })
 
-// Barres de distribution calculées depuis ratingCount
 const ratingBars = computed(() => {
   const rc    = stats.value.ratingCount
   const total = Object.values(rc).reduce((s, v) => s + v, 0)
@@ -549,6 +576,39 @@ function handleAvatarError(event) {
   event.target.style.display = 'none'
 }
 
+// ── Suppression ───────────────────────────────────────
+const deleteTarget = ref(null)   // commentaire en attente de confirmation
+const deleting     = ref(false)
+
+function confirmDelete(c) {
+  deleteTarget.value = c
+}
+
+async function executeDelete() {
+  if (!deleteTarget.value) return
+  const c = deleteTarget.value
+  deleting.value = true
+  try {
+    await deleteFeedback(c.id)
+
+    // Mise à jour locale immédiate
+    reviews.value = reviews.value.filter(r => r.id !== c.id)
+    stats.value = {
+      totalCount: Math.max(0, stats.value.totalCount - 1),
+      ratingCount: {
+        ...stats.value.ratingCount,
+        [c.rating]: Math.max(0, (stats.value.ratingCount[c.rating] ?? 0) - 1),
+      },
+    }
+    hasAlreadyReviewed.value = false
+    deleteTarget.value       = null
+  } catch (e) {
+    console.error('[Feedback] executeDelete error:', e)
+  } finally {
+    deleting.value = false
+  }
+}
+
 // ── Form ──────────────────────────────────────────────
 const sportOptions  = ['Musculation', 'CrossFit', 'Running', 'Natation', 'Yoga', 'Cyclisme', 'Autre']
 const availableTags = ['Motivation', 'Interface', 'Communauté', 'Programmes', 'Défis', 'Progression', 'Coaching', 'Suivi', 'Musculation', 'Running', 'Natation', 'CrossFit']
@@ -561,13 +621,38 @@ const submitting  = ref(false)
 const showSuccess = ref(false)
 const lastAuthor  = ref('')
 
+// ── Mode édition ──────────────────────────────────────
+const isEditing      = ref(false)
+const editOldRating  = ref(0)
+
+function startEdit(c) {
+  form.value = {
+    sport:  c.sport  ?? '',
+    rating: c.rating ?? 0,
+    tags:   [...(c.tags ?? [])],
+    title:  c.title  ?? '',
+    text:   c.text   ?? '',
+  }
+  editOldRating.value = c.rating
+  isEditing.value     = true
+  errors.value        = { rating: false, text: false }
+  formRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function cancelEdit() {
+  isEditing.value = false
+  form.value      = { sport: '', rating: 0, tags: [], title: '', text: '' }
+  errors.value    = { rating: false, text: false }
+}
+
 function toggleTag(t) {
   const i = form.value.tags.indexOf(t)
   i === -1 ? form.value.tags.push(t) : form.value.tags.splice(i, 1)
 }
 
 async function submitComment() {
-  if (!currentUser.value || hasAlreadyReviewed.value) return
+  if (!currentUser.value) return
+  if (!isEditing.value && hasAlreadyReviewed.value) return
 
   errors.value.rating = form.value.rating === 0
   errors.value.text   = !form.value.text.trim() || form.value.text.length > 500
@@ -577,32 +662,55 @@ async function submitComment() {
   try {
     const name     = currentUserName.value
     const photoURL = currentUserProfile.value?.photoURL ?? null
+    const uid      = currentUser.value.uid
 
-    await addFeedback({
-      name,
-      photoURL,
-      sport:  form.value.sport,
-      rating: form.value.rating,
-      tags:   [...form.value.tags],
-      title:  form.value.title,
-      text:   form.value.text.trim(),
-      userId: currentUser.value.uid,
-    })
-
-    // Mise à jour locale immédiate des stats sans refetch
-    stats.value = {
-      totalCount: stats.value.totalCount + 1,
-      ratingCount: {
-        ...stats.value.ratingCount,
-        [form.value.rating]: (stats.value.ratingCount[form.value.rating] ?? 0) + 1,
-      },
+    if (isEditing.value) {
+      await updateFeedback(
+        uid,
+        {
+          sport:  form.value.sport,
+          rating: form.value.rating,
+          tags:   [...form.value.tags],
+          title:  form.value.title,
+          text:   form.value.text.trim(),
+        },
+        editOldRating.value
+      )
+      if (form.value.rating !== editOldRating.value) {
+        stats.value = {
+          ...stats.value,
+          ratingCount: {
+            ...stats.value.ratingCount,
+            [editOldRating.value]: Math.max(0, (stats.value.ratingCount[editOldRating.value] ?? 0) - 1),
+            [form.value.rating]:   (stats.value.ratingCount[form.value.rating] ?? 0) + 1,
+          },
+        }
+      }
+      isEditing.value = false
+    } else {
+      await addFeedback({
+        name, photoURL,
+        sport:  form.value.sport,
+        rating: form.value.rating,
+        tags:   [...form.value.tags],
+        title:  form.value.title,
+        text:   form.value.text.trim(),
+        userId: uid,
+      })
+      stats.value = {
+        totalCount: stats.value.totalCount + 1,
+        ratingCount: {
+          ...stats.value.ratingCount,
+          [form.value.rating]: (stats.value.ratingCount[form.value.rating] ?? 0) + 1,
+        },
+      }
+      lastAuthor.value         = name.split(' ')[0]
+      hasAlreadyReviewed.value = true
     }
 
-    lastAuthor.value         = name.split(' ')[0]
-    form.value               = { sport: '', rating: 0, tags: [], title: '', text: '' }
-    hasAlreadyReviewed.value = true
-    showSuccess.value        = true
-    activeFilter.value       = 'all'
+    form.value         = { sport: '', rating: 0, tags: [], title: '', text: '' }
+    showSuccess.value  = true
+    activeFilter.value = 'all'
     await refresh()
     setTimeout(() => (showSuccess.value = false), 4000)
   } catch (e) {
@@ -620,7 +728,6 @@ const filtersRef  = ref(null)
 const formRef     = ref(null)
 
 onMounted(async () => {
-  // Chargement parallèle : avis + stats + profil user
   const [, statsData] = await Promise.all([
     fetchFeedbacks({ orderField: 'createdAt', orderDir: 'desc' }),
     fetchStats(),
@@ -699,18 +806,13 @@ onMounted(async () => {
 @keyframes bd3 { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-50%,-50%) scale(1.4); } }
 
 /* ─── Hero ─── */
-.page-hero {
-  text-align: center;
-  max-width: 700px;
-  margin: 0 auto 72px;
-}
+.page-hero { text-align: center; max-width: 700px; margin: 0 auto 72px; }
 .eyebrow {
   display: flex; align-items: center; justify-content: center; gap: 14px;
   font-size: 0.68rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
   color: rgba(186,242,216,0.6); margin-bottom: 1.6rem;
 }
 .eyebrow-line { flex: 0 0 40px; height: 1px; background: rgba(186,242,216,0.2); }
-
 h1 {
   font-family: var(--font-serif, Georgia, serif);
   font-size: clamp(3rem, 6.5vw, 5.8rem);
@@ -729,14 +831,12 @@ h1 em { font-style: italic; color: #baf2d8; }
   border-radius: 24px; padding: 40px 48px;
 }
 .overview-divider { width: 1px; height: 100px; background: rgba(255,255,255,0.08); margin: 0 48px; flex-shrink: 0; }
-
 .overview-score { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 110px; }
 .score-num { font-size: 4rem; font-weight: 800; color: #baf2d8; line-height: 1; letter-spacing: -0.04em; }
 .score-stars .star { font-size: 1rem; color: rgba(255,255,255,0.12); }
 .score-stars .star.filled { color: #baf2d8; }
 .score-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 .score-count { font-size: 0.68rem; color: rgba(255,255,255,0.25); }
-
 .overview-bars { flex: 1; display: flex; flex-direction: column; gap: 11px; }
 .bar-row { display: flex; align-items: center; gap: 12px; }
 .mini-star { font-size: 0.6rem; color: rgba(255,255,255,0.1); }
@@ -744,7 +844,6 @@ h1 em { font-style: italic; color: #baf2d8; }
 .bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.07); border-radius: 10px; overflow: hidden; }
 .bar-fill { height: 100%; background: linear-gradient(90deg, #baf2d8, #6ee7b7); border-radius: 10px; transition: width 0.8s ease; }
 .bar-count { font-size: 0.65rem; color: rgba(255,255,255,0.25); width: 36px; text-align: right; flex-shrink: 0; }
-
 .overview-tags-cloud { flex: 1; }
 .cloud-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 16px; }
 .cloud-tags { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -772,7 +871,6 @@ h1 em { font-style: italic; color: #baf2d8; }
 }
 .filter-btn:hover { border-color: rgba(186,242,216,0.25); color: rgba(186,242,216,0.8); }
 .filter-btn.active { background: rgba(186,242,216,0.1); border-color: rgba(186,242,216,0.4); color: #baf2d8; }
-
 .filters-right { display: flex; align-items: center; gap: 10px; }
 .search-wrap {
   display: flex; align-items: center; gap: 8px;
@@ -786,7 +884,6 @@ h1 em { font-style: italic; color: #baf2d8; }
   color: #fff; width: 180px; font-family: inherit;
 }
 .search-input::placeholder { color: rgba(255,255,255,0.2); }
-
 .sort-select {
   appearance: none; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px; padding: 8px 14px; font-size: 0.8rem; color: rgba(255,255,255,0.55);
@@ -801,7 +898,6 @@ h1 em { font-style: italic; color: #baf2d8; }
   display: flex; flex-direction: column; gap: 1rem;
   margin-bottom: 32px;
 }
-
 .comment-card {
   position: relative;
   background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
@@ -809,7 +905,6 @@ h1 em { font-style: italic; color: #baf2d8; }
   transition: border-color 0.25s, transform 0.25s;
 }
 .comment-card:hover { border-color: rgba(186,242,216,0.18); transform: translateX(3px); }
-
 .comment-featured { border-color: rgba(186,242,216,0.22); background: rgba(186,242,216,0.035); }
 .comment-featured-badge {
   position: absolute; top: 20px; right: 20px;
@@ -818,9 +913,7 @@ h1 em { font-style: italic; color: #baf2d8; }
   font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
   border-radius: 100px; padding: 4px 10px;
 }
-
 .comment-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
-
 .c-avatar {
   width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, hsl(calc(var(--hue)), 45%, 20%), hsl(calc(var(--hue)), 55%, 12%));
@@ -829,12 +922,7 @@ h1 em { font-style: italic; color: #baf2d8; }
   font-size: 0.62rem; font-weight: 800; color: #baf2d8;
   overflow: hidden; position: relative;
 }
-.c-avatar-img {
-  width: 100%; height: 100%;
-  object-fit: cover; border-radius: 50%;
-  position: absolute; inset: 0;
-}
-
+.c-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; position: absolute; inset: 0; }
 .c-meta { flex: 1; min-width: 0; }
 .c-name { display: block; font-size: 0.9rem; font-weight: 700; color: #fff; }
 .c-sport {
@@ -847,17 +935,33 @@ h1 em { font-style: italic; color: #baf2d8; }
 .c-rating .star { font-size: 0.78rem; color: rgba(255,255,255,0.12); }
 .c-rating .star.filled { color: #baf2d8; }
 
-/* Titre du commentaire */
-.c-title {
-  font-size: 0.97rem;
-  font-weight: 700;
-  color: rgba(255,255,255,0.9);
-  letter-spacing: -0.01em;
-  margin-bottom: 8px;
+/* Boutons auteur */
+.owner-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.owner-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.owner-btn--edit {
+  background: rgba(186,242,216,0.06); border: 1px solid rgba(186,242,216,0.15);
+  color: rgba(186,242,216,0.5);
+}
+.owner-btn--edit:hover {
+  background: rgba(186,242,216,0.14); color: #baf2d8;
+  border-color: rgba(186,242,216,0.35); transform: scale(1.1);
+}
+.owner-btn--delete {
+  background: rgba(255,80,80,0.06); border: 1px solid rgba(255,80,80,0.15);
+  color: rgba(255,100,100,0.45);
+}
+.owner-btn--delete:hover {
+  background: rgba(255,80,80,0.14); color: rgba(255,120,120,0.9);
+  border-color: rgba(255,80,80,0.35); transform: scale(1.1);
 }
 
+/* Titre du commentaire */
+.c-title { font-size: 0.97rem; font-weight: 700; color: rgba(255,255,255,0.9); letter-spacing: -0.01em; margin-bottom: 8px; }
 .c-text { font-size: 0.88rem; color: rgba(255,255,255,0.62); line-height: 1.78; margin-bottom: 16px; }
-
 .c-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
 .c-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .c-tag {
@@ -888,16 +992,10 @@ h1 em { font-style: italic; color: #baf2d8; }
   font-size: 0.5rem; font-weight: 800; color: #baf2d8;
   overflow: hidden; position: relative;
 }
-.reply-avatar-img {
-  width: 100%; height: 100%;
-  object-fit: cover; border-radius: 50%;
-  position: absolute; inset: 0;
-}
+.reply-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; position: absolute; inset: 0; }
 .reply-body strong { font-size: 0.75rem; color: #fff; margin-right: 8px; }
 .reply-date { font-size: 0.62rem; color: rgba(255,255,255,0.25); }
 .reply-body p { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin: 4px 0 0; line-height: 1.6; }
-
-/* Reply form */
 .reply-form {
   display: flex; gap: 8px; margin-top: 14px; padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -917,10 +1015,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .reply-form button:hover { background: rgba(186,242,216,0.18); }
 
 /* Load more */
-.load-more {
-  max-width: 1000px; margin: 0 auto 48px;
-  display: flex; justify-content: center;
-}
+.load-more { max-width: 1000px; margin: 0 auto 48px; display: flex; justify-content: center; }
 .btn-load-more {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 12px 32px; border-radius: 100px;
@@ -932,10 +1027,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 .btn-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Empty state */
-.empty-state {
-  text-align: center; padding: 60px 20px;
-  display: flex; flex-direction: column; align-items: center; gap: 14px;
-}
+.empty-state { text-align: center; padding: 60px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .empty-state p { font-size: 0.85rem; color: rgba(255,255,255,0.3); }
 
 /* ─── Write Review ─── */
@@ -952,11 +1044,7 @@ h1 em { font-style: italic; color: #baf2d8; }
 }
 .write-header h2 { font-size: 1.3rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
 .write-header p { font-size: 0.82rem; color: rgba(255,255,255,0.35); margin: 0; }
-
-.auth-gate {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px; padding: 48px 24px; text-align: center;
-}
+.auth-gate { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 24px; text-align: center; }
 .auth-gate-icon {
   width: 56px; height: 56px; border-radius: 16px;
   background: rgba(186,242,216,0.05); border: 1px solid rgba(186,242,216,0.12);
@@ -967,21 +1055,15 @@ h1 em { font-style: italic; color: #baf2d8; }
 .btn-auth {
   margin-top: 8px; display: inline-flex; align-items: center;
   padding: 12px 30px; border-radius: 12px;
-  background: #baf2d8; color: #0a1f2e;
-  font-size: 0.87rem; font-weight: 800; text-decoration: none;
+  background: #baf2d8; color: #0a1f2e; font-size: 0.87rem; font-weight: 800; text-decoration: none;
   transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
 }
 .btn-auth:hover { background: #cef7e8; transform: translateY(-2px); }
-
-.already-reviewed {
-  padding: 28px 32px; background: rgba(186,242,216,0.05);
-  border: 1px solid rgba(186,242,216,0.2); border-radius: 16px;
-}
+.already-reviewed { padding: 28px 32px; background: rgba(186,242,216,0.05); border: 1px solid rgba(186,242,216,0.2); border-radius: 16px; }
 .already-reviewed-inner { display: flex; align-items: flex-start; gap: 16px; }
 .already-reviewed-inner svg { flex-shrink: 0; margin-top: 2px; }
 .already-reviewed-title { font-size: 0.92rem; font-weight: 700; color: #baf2d8; margin: 0 0 4px; }
 .already-reviewed-sub { font-size: 0.8rem; color: rgba(255,255,255,0.4); margin: 0; }
-
 .user-identity {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 18px; margin-bottom: 28px;
@@ -998,14 +1080,12 @@ h1 em { font-style: italic; color: #baf2d8; }
 .user-identity-info { display: flex; flex-direction: column; gap: 3px; }
 .user-identity-name { font-size: 0.9rem; font-weight: 700; color: #fff; }
 .user-identity-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(186,242,216,0.4); }
-
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
 .form-col { display: flex; flex-direction: column; }
 .form-group { display: flex; flex-direction: column; gap: 9px; margin-bottom: 22px; position: relative; }
 label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.38); }
 .req { color: rgba(186,242,216,0.7); }
 .optional { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 0.65rem; opacity: 0.6; }
-
 input, textarea {
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px; padding: 12px 16px;
@@ -1017,7 +1097,6 @@ input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.18); }
 input:focus, textarea:focus { border-color: rgba(186,242,216,0.4); background: rgba(186,242,216,0.025); }
 input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .err-msg { font-size: 0.67rem; color: rgba(255,120,120,0.9); }
-
 .sport-picker { display: flex; flex-wrap: wrap; gap: 7px; }
 .sport-btn {
   font-size: 0.7rem; font-weight: 600; padding: 5px 14px; border-radius: 100px;
@@ -1026,7 +1105,6 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 }
 .sport-btn:hover { border-color: rgba(186,242,216,0.25); color: rgba(186,242,216,0.7); }
 .sport-btn.active { background: rgba(186,242,216,0.1); border-color: rgba(186,242,216,0.4); color: #baf2d8; }
-
 .star-picker { display: flex; align-items: center; gap: 4px; }
 .star-btn {
   font-size: 1.6rem; color: rgba(255,255,255,0.1); background: none; border: none;
@@ -1036,7 +1114,6 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 .star-btn.active { color: #baf2d8; }
 .star-btn:hover { transform: scale(1.2); }
 .star-label { font-size: 0.72rem; font-weight: 700; color: rgba(186,242,216,0.7); margin-left: 8px; }
-
 .tag-picker { display: flex; flex-wrap: wrap; gap: 7px; }
 .tag-btn {
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em;
@@ -1046,55 +1123,102 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
 }
 .tag-btn:hover { border-color: rgba(186,242,216,0.25); color: rgba(186,242,216,0.7); }
 .tag-btn.active { background: rgba(186,242,216,0.1); border-color: rgba(186,242,216,0.35); color: #baf2d8; }
-
 .textarea-footer { display: flex; justify-content: space-between; align-items: center; }
 .char-count { font-size: 0.65rem; color: rgba(255,255,255,0.2); margin-left: auto; }
 .char-count.over { color: rgba(255,120,120,0.8); }
-
-.form-submit-row { display: flex; align-items: center; gap: 20px; margin-top: 8px; }
+.form-submit-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
 .btn-submit {
   padding: 14px 36px; border-radius: 14px;
   background: #baf2d8; color: #0a1f2e; border: none;
   font-size: 0.9rem; font-weight: 800; cursor: pointer;
   transition: background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
 }
-.btn-submit:hover:not(:disabled) {
-  background: #cef7e8; transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(186,242,216,0.25);
-}
+.btn-submit:hover:not(:disabled) { background: #cef7e8; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(186,242,216,0.25); }
 .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-cancel {
+  padding: 14px 24px; border-radius: 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.45); font-size: 0.87rem; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.btn-cancel:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); }
 .btn-inner { display: flex; align-items: center; gap: 8px; }
 .form-note { font-size: 0.72rem; color: rgba(255,255,255,0.25); }
-
 .spinner {
   width: 16px; height: 16px; border: 2px solid rgba(10,31,46,0.3);
   border-top-color: #0a1f2e; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
 }
+.spinner--red { border-color: rgba(255,80,80,0.2); border-top-color: rgba(255,100,100,0.8); }
 @keyframes spin { to { transform: rotate(360deg); } }
-
 .success-toast {
   margin-top: 18px; padding: 13px 22px; border-radius: 14px;
   background: #baf2d8; color: #0a1f2e; font-size: 0.87rem; font-weight: 700;
   display: inline-flex; align-items: center; gap: 10px;
 }
 
+/* ─── Modale de confirmation ─── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(6,12,28,0.75);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal {
+  background: rgba(13,24,50,0.98);
+  border: 1px solid rgba(255,80,80,0.2);
+  border-radius: 20px; padding: 36px 40px;
+  max-width: 420px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.modal-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: rgba(255,80,80,0.07); border: 1px solid rgba(255,80,80,0.18);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal h3 { font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0; }
+.modal p { font-size: 0.83rem; color: rgba(255,255,255,0.42); line-height: 1.7; margin: 0; max-width: 320px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
+.modal-btn {
+  flex: 1; padding: 12px 18px; border-radius: 12px;
+  font-size: 0.85rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.modal-btn--cancel {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+}
+.modal-btn--cancel:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+.modal-btn--confirm {
+  background: rgba(255,60,60,0.12); border: 1px solid rgba(255,60,60,0.3);
+  color: rgba(255,120,120,0.9);
+}
+.modal-btn--confirm:hover:not(:disabled) { background: rgba(255,60,60,0.22); border-color: rgba(255,60,60,0.5); color: #ff9090; }
+.modal-btn--confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ─── Transitions ─── */
 .fade-block-enter-active { transition: opacity 0.35s ease, transform 0.35s ease; }
 .fade-block-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-block-leave-active { transition: opacity 0.2s ease; }
 .fade-block-leave-to { opacity: 0; }
-
 .reply-slide-enter-active { transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 .reply-slide-enter-from { opacity: 0; transform: translateY(-10px); }
 .reply-slide-leave-active { transition: all 0.2s ease; }
 .reply-slide-leave-to { opacity: 0; transform: translateY(-6px); }
-
 .toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.35s ease; }
 .toast-slide-enter-from, .toast-slide-leave-to { opacity: 0; transform: translateY(10px); }
-
 .btn-content-enter-active, .btn-content-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .btn-content-enter-from { opacity: 0; transform: scale(0.9); }
 .btn-content-leave-to { opacity: 0; transform: scale(0.9); }
+.modal-fade-enter-active { transition: opacity 0.25s ease; }
+.modal-fade-enter-active .modal { transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.modal-fade-enter-from { opacity: 0; }
+.modal-fade-enter-from .modal { opacity: 0; transform: scale(0.92) translateY(10px); }
+.modal-fade-leave-active { transition: opacity 0.2s ease; }
+.modal-fade-leave-to { opacity: 0; }
 
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
@@ -1105,9 +1229,11 @@ input.error, textarea.error { border-color: rgba(255,100,100,0.45); }
   .filters-bar { flex-direction: column; align-items: flex-start; }
   .filters-right { width: 100%; }
   .search-input { width: 100%; }
+  .modal { padding: 28px 24px; }
 }
 @media (max-width: 600px) {
   #retours { padding: 100px 5% 80px; }
   .form-submit-row { flex-direction: column; align-items: flex-start; }
+  .modal-actions { flex-direction: column; }
 }
 </style>
