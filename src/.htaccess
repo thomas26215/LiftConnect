@@ -7,3 +7,42 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
+# ── Compression Gzip (performances) ──────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
+</IfModule>
+
+# ── Cache navigateur pour assets buildés ─────────────────
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/webp             "access plus 1 year"
+  ExpiresByType image/png              "access plus 1 year"
+  ExpiresByType image/jpeg             "access plus 1 year"
+  ExpiresByType text/css               "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# ── Headers CORS + CSP ────────────────────────────────────
+<IfModule mod_headers.c>
+  # Autorise Firebase Storage à servir les images
+  Header set Access-Control-Allow-Origin "*"
+
+  # CSP : autorise les images depuis Firebase Storage et Google
+  Header set Content-Security-Policy "\
+    default-src 'self'; \
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://*.firebaseapp.com; \
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+    font-src 'self' https://fonts.gstatic.com; \
+    img-src 'self' data: blob: \
+      https://firebasestorage.googleapis.com \
+      https://*.googleusercontent.com \
+      https://lh3.googleusercontent.com; \
+    connect-src 'self' \
+      https://*.firebaseio.com \
+      https://firestore.googleapis.com \
+      https://identitytoolkit.googleapis.com \
+      https://securetoken.googleapis.com \
+      wss://*.firebaseio.com; \
+  "
+</IfModule>
+
