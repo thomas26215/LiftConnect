@@ -7,6 +7,7 @@ import LegalPage        from '../pages/legal/legal.vue'
 import DeleteAccountPage from '../pages/legal/delete-account.vue'
 import LoginPage        from '../pages/auth/login.vue'
 import RegisterPage     from '../pages/auth/register.vue'
+import ForgotPasswordPage from '../pages/auth/forgetPassword.vue'
 import AmbassadorPage from '../pages/communaute/ambassadeur.vue'
 import FeedbackPage from '../pages/communaute/feedback.vue'
 
@@ -19,6 +20,7 @@ const router = createRouter({
     { path: '/delete-account', name: 'delete-account', component: DeleteAccountPage },
     { path: '/auth/login',     name: 'login',          component: LoginPage,    meta: { guestOnly: true } },
     { path: '/auth/register',  name: 'register',       component: RegisterPage, meta: { guestOnly: true } },
+    { path: '/auth/forgot-password', name: 'forgot-password', component: ForgotPasswordPage, meta: { guestOnly: true } },
     { path: '/ambassadeur', name: 'ambassador', component: AmbassadorPage },
     { path: '/feedback', name: 'feedback', component: FeedbackPage }
   ],

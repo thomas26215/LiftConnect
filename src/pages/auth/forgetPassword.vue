@@ -1,14 +1,14 @@
 <template>
-  <AuthLayout eyebrow-label="Bon retour">
+  <AuthLayout eyebrow-label="Récupération">
 
-    <template #title>Se <em>connecter</em></template>
-    <template #subtitle>Accède à tes séances, ta progression et ta communauté. Connecte-toi pour reprendre là où tu t'es arrêté.</template>
+    <template #title>Mot de passe <em>oublié ?</em></template>
+    <template #subtitle>Saisis ton adresse e-mail et on t'envoie un lien pour réinitialiser ton mot de passe.</template>
 
-    <!-- ── Formulaire de connexion ── -->
+    <!-- ── Formulaire ── -->
     <div class="auth-card" ref="formRef">
       <div class="card-header">
         <span class="card-num">01</span>
-        <h2>Identifiants</h2>
+        <h2>Réinitialisation</h2>
       </div>
       <div class="card-body">
 
@@ -24,43 +24,18 @@
               <input
                 id="email" v-model="form.email" type="email"
                 placeholder="vous@exemple.com" autocomplete="email"
-                @focus="focused = 'email'" @blur="focused = null; validateField('email')"
+                :disabled="success"
+                @focus="focused = 'email'" @blur="focused = null; validateField()"
               />
             </div>
             <span class="field-error" v-if="errors.email">{{ errors.email }}</span>
           </div>
 
-          <!-- Mot de passe -->
-          <div class="field" :class="{ 'field--error': errors.password, 'field--focused': focused === 'password' }">
-            <div class="label-row">
-              <label for="password">Mot de passe</label>
-              <RouterLink :to="{ name: 'forgot-password' }" class="label-link">
-  Mot de passe oublié ?
-</RouterLink>
-            </div>
-            <div class="input-wrap">
-              <span class="input-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              </span>
-              <input
-                id="password" v-model="form.password"
-                :type="showPassword ? 'text' : 'password'"
-                placeholder="••••••••" autocomplete="current-password"
-                @focus="focused = 'password'" @blur="focused = null; validateField('password')"
-              />
-              <button type="button" class="toggle-pw" @click="showPassword = !showPassword" tabindex="-1">
-                <svg v-if="!showPassword" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              </button>
-            </div>
-            <span class="field-error" v-if="errors.password">{{ errors.password }}</span>
-          </div>
-
           <!-- Submit -->
-          <button type="submit" class="btn-submit" :disabled="isLoading">
+          <button type="submit" class="btn-submit" :disabled="isLoading || success">
             <span class="btn-shimmer"></span>
             <span class="btn-content">
-              <span v-if="!isLoading">Se connecter</span>
+              <span v-if="!isLoading">Envoyer le lien</span>
               <span v-else class="spinner"></span>
             </span>
             <svg v-if="!isLoading" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
@@ -70,7 +45,17 @@
           <transition name="fade">
             <div v-if="success" class="info-block info-block--success">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>Connexion réussie ! Bienvenue sur LiftConnect 👋</span>
+              <span>Email envoyé à <strong>{{ form.email }}</strong>. Vérifie ta boîte de réception (et tes spams).</span>
+            </div>
+          </transition>
+
+          <!-- Resend -->
+          <transition name="fade">
+            <div v-if="success" class="resend-row">
+              <span>Pas reçu ?</span>
+              <button type="button" class="resend-btn" :disabled="resendCooldown > 0" @click="handleSubmit">
+                {{ resendCooldown > 0 ? `Renvoyer dans ${resendCooldown}s` : 'Renvoyer le lien' }}
+              </button>
             </div>
           </transition>
 
@@ -78,30 +63,29 @@
       </div>
     </div>
 
-    <!-- ── Connexion sociale ── -->
+    <!-- ── Info ── -->
     <div class="auth-card">
       <div class="card-header">
         <span class="card-num">02</span>
-        <h2>Ou continuer avec</h2>
+        <h2>Comment ça marche ?</h2>
       </div>
       <div class="card-body">
-        <div class="social-grid">
-          <button class="social-btn" type="button" @click="loginWithGoogle" :disabled="isLoading">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Continuer avec Google
-          </button>
-          <button class="social-btn" type="button" @click="loginWithGithub" :disabled="isLoading">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.164 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
-            Continuer avec GitHub
-          </button>
+        <div class="steps">
+          <div class="step" v-for="(s, i) in steps" :key="i">
+            <div class="step-num">{{ i + 1 }}</div>
+            <div class="step-text">
+              <strong>{{ s.title }}</strong>
+              <span>{{ s.desc }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ── Switch ── -->
     <p class="switch-mode">
-      Pas encore de compte ?
-      <RouterLink :to="{ name: 'register' }" class="switch-link">Créer un compte gratuitement ↗</RouterLink>
+      Tu t'en souviens finalement ?
+      <RouterLink :to="{ name: 'login' }" class="switch-link">Se connecter ↗</RouterLink>
     </p>
 
     <!-- ── Sidebar ── -->
@@ -110,16 +94,16 @@
         <p class="sidebar-label">Navigation</p>
         <div class="sidebar-item">
           <span class="sidebar-num">01</span>
-          <span class="sidebar-title">Identifiants</span>
+          <span class="sidebar-title">Réinitialisation</span>
         </div>
         <div class="sidebar-item">
           <span class="sidebar-num">02</span>
-          <span class="sidebar-title">Connexion sociale</span>
+          <span class="sidebar-title">Comment ça marche</span>
         </div>
       </div>
 
       <div class="sidebar-card sidebar-card--accent">
-        <p class="sidebar-label">Nouveau sur LiftConnect ?</p>
+        <p class="sidebar-label">Pas encore de compte ?</p>
         <p class="sidebar-body">Rejoins 50 000+ athlètes. C'est gratuit.</p>
         <RouterLink :to="{ name: 'register' }" class="sidebar-cta">Créer un compte</RouterLink>
       </div>
@@ -135,43 +119,54 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { signInWithEmailAndPassword, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from 'firebase/auth'
+import { RouterLink } from 'vue-router'
+import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '@/firebase'
 import AuthLayout from './AuthLayout.vue'
 
-const router       = useRouter()
-const formRef      = ref(null)
-const isLoading    = ref(false)
-const showPassword = ref(false)
-const focused      = ref(null)
-const success      = ref(false)
+const formRef       = ref(null)
+const isLoading     = ref(false)
+const focused       = ref(null)
+const success       = ref(false)
+const resendCooldown = ref(0)
 
-const form   = reactive({ email: '', password: '' })
-const errors = reactive({ email: '', password: '' })
+const form   = reactive({ email: '' })
+const errors = reactive({ email: '' })
 
-function validateField(field) {
-  if (field === 'email')
-    errors.email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ? '' : 'Adresse e-mail invalide.'
-  if (field === 'password')
-    errors.password = form.password.length < 6 ? 'Mot de passe trop court.' : ''
+const steps = [
+  { title: 'Saisis ton email',     desc: 'Entre l\'adresse associée à ton compte LiftConnect.' },
+  { title: 'Reçois le lien',       desc: 'Un email avec un lien sécurisé t\'est envoyé en quelques secondes.' },
+  { title: 'Crée un nouveau mot de passe', desc: 'Clique sur le lien et choisis un nouveau mot de passe sécurisé.' },
+]
+
+function validateField() {
+  errors.email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
+    ? ''
+    : 'Adresse e-mail invalide.'
+}
+
+function startCooldown() {
+  resendCooldown.value = 60
+  const interval = setInterval(() => {
+    resendCooldown.value--
+    if (resendCooldown.value <= 0) clearInterval(interval)
+  }, 1000)
 }
 
 async function handleSubmit() {
-  validateField('email')
-  validateField('password')
-  if (errors.email || errors.password) return
+  validateField()
+  if (errors.email) return
   isLoading.value = true
   try {
-    await signInWithEmailAndPassword(auth, form.email, form.password)
+    await sendPasswordResetEmail(auth, form.email)
     success.value = true
-    setTimeout(() => router.push({ name: 'home' }), 1000)
+    startCooldown()
   } catch (e) {
     switch (e.code) {
       case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        errors.email = 'Email ou mot de passe incorrect.'
+        // On ne révèle pas si l'email existe ou non (sécurité)
+        success.value = true
+        startCooldown()
         break
       case 'auth/too-many-requests':
         errors.email = 'Trop de tentatives. Réessaie plus tard.'
@@ -179,32 +174,6 @@ async function handleSubmit() {
       default:
         errors.email = 'Une erreur est survenue. Réessaie.'
     }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function loginWithGoogle() {
-  isLoading.value = true
-  try {
-    await signInWithPopup(auth, new GoogleAuthProvider())
-    router.push({ name: 'home' })
-  } catch (e) {
-    if (e.code !== 'auth/popup-closed-by-user')
-      errors.email = 'Erreur de connexion Google.'
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function loginWithGithub() {
-  isLoading.value = true
-  try {
-    await signInWithPopup(auth, new GithubAuthProvider())
-    router.push({ name: 'home' })
-  } catch (e) {
-    if (e.code !== 'auth/popup-closed-by-user')
-      errors.email = 'Erreur de connexion GitHub.'
   } finally {
     isLoading.value = false
   }
@@ -253,21 +222,12 @@ h2 {
 
 /* ─── Form ─── */
 form { display: flex; flex-direction: column; gap: 16px; }
-
 .field { display: flex; flex-direction: column; gap: 6px; }
 
 label {
   font-size: 0.78rem; font-weight: 600;
   color: rgba(255,255,255,0.45); letter-spacing: 0.02em;
 }
-
-.label-row { display: flex; justify-content: space-between; align-items: center; }
-.label-link {
-  font-size: 0.74rem; font-weight: 600;
-  color: rgba(186,242,216,0.55); text-decoration: none;
-  transition: color 0.2s;
-}
-.label-link:hover { color: #baf2d8; }
 
 .input-wrap { position: relative; display: flex; align-items: center; }
 .input-icon {
@@ -277,7 +237,7 @@ label {
 }
 .field--focused .input-icon { color: rgba(186,242,216,0.5); }
 
-input[type="email"], input[type="password"], input[type="text"] {
+input[type="email"] {
   width: 100%;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
@@ -295,18 +255,11 @@ input:focus {
   background: rgba(186,242,216,0.03);
   box-shadow: 0 0 0 3px rgba(186,242,216,0.05);
 }
+input:disabled { opacity: 0.5; cursor: not-allowed; }
 .field--error input {
   border-color: rgba(248,113,113,0.45);
   box-shadow: 0 0 0 3px rgba(248,113,113,0.05);
 }
-
-.toggle-pw {
-  position: absolute; right: 14px;
-  background: none; border: none; cursor: pointer;
-  color: rgba(255,255,255,0.22); display: flex; padding: 0;
-  transition: color 0.2s;
-}
-.toggle-pw:hover { color: rgba(186,242,216,0.6); }
 
 .field-error {
   font-size: 0.72rem; color: #f87171; padding-left: 2px;
@@ -357,27 +310,56 @@ input:focus {
   color: rgba(186,242,216,0.75); line-height: 1.6;
 }
 .info-block svg { flex-shrink: 0; margin-top: 2px; color: #baf2d8; }
+.info-block strong { color: #baf2d8; }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+/* ─── Resend ─── */
+.resend-row {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 0.8rem; font-weight: 600;
+  color: rgba(255,255,255,0.3);
+}
+.resend-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.8rem; font-weight: 700;
+  color: rgba(186,242,216,0.6);
+  transition: color 0.2s;
+  padding: 0;
+}
+.resend-btn:hover:not(:disabled) { color: #baf2d8; }
+.resend-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ─── Social grid ─── */
-.social-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.social-btn {
-  display: flex; align-items: center; justify-content: center; gap: 9px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px; padding: 12px 0;
-  font-size: 0.83rem; font-weight: 600;
-  color: rgba(255,255,255,0.55); cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+/* ─── Steps ─── */
+.steps { display: flex; flex-direction: column; gap: 14px; }
+.step {
+  display: flex; align-items: flex-start; gap: 14px;
 }
-.social-btn:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(186,242,216,0.15);
-  color: rgba(255,255,255,0.85);
-  transform: translateY(-2px);
+.step-num {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: rgba(186,242,216,0.08);
+  border: 1px solid rgba(186,242,216,0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  color: rgba(186,242,216,0.6);
+  font-family: var(--font-serif);
 }
+.step-text {
+  display: flex; flex-direction: column; gap: 2px;
+  padding-top: 3px;
+}
+.step-text strong {
+  font-size: 0.82rem; font-weight: 700;
+  color: rgba(255,255,255,0.75);
+}
+.step-text span {
+  font-size: 0.76rem; font-weight: 500;
+  color: rgba(255,255,255,0.35); line-height: 1.5;
+}
+
+/* ─── Fade transition ─── */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s, transform 0.3s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-6px); }
 
 /* ─── Switch ─── */
 .switch-mode {
@@ -447,6 +429,5 @@ input:focus {
 
 @media (max-width: 600px) {
   .card-header, .card-body { padding: 16px 18px; }
-  .social-grid { grid-template-columns: 1fr; }
 }
 </style>
