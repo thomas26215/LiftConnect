@@ -56,15 +56,16 @@
       </a>
     </div>
 
-    <!-- Social proof -->
-    <div class="social-proof" ref="proofRef">
+    <!-- CTA Reviews -->
+    <div class="reviews-cta" ref="proofRef">
       <div class="avatars">
         <span v-for="(init, i) in initials" :key="i" class="avatar" :style="{ '--ai': i }">{{ init }}</span>
       </div>
-      <div class="proof-text">
-        <strong>50 000+</strong> athl&#232;tes actifs
-        <span class="proof-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-      </div>
+      <RouterLink :to="{ name: 'feedback' }" class="btn-reviews">
+        <span class="reviews-icon">&#9733;</span>
+        <span>Lire les avis</span>
+        <span class="reviews-arrow">&#8594;</span>
+      </RouterLink>
     </div>
 
     <!-- Scroll indicator -->
@@ -80,6 +81,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import gsap from 'gsap'
 
 const heroRef    = ref(null)
@@ -333,7 +335,6 @@ h1 em {
   display: inline-block;
 }
 
-/* Underline animé sur l'italic */
 h1 em::after {
   content: '';
   position: absolute;
@@ -374,7 +375,7 @@ h1 em::after {
   gap: 1.2rem;
   flex-wrap: wrap;
   justify-content: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .btn-primary {
@@ -455,19 +456,14 @@ h1 em::after {
   transform: translateX(5px);
 }
 
-/* ─── Social proof ─── */
-.social-proof {
+/* ─── Reviews CTA ─── */
+.reviews-cta {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 0.82rem;
-  color: rgba(255,255,255,0.42);
-}
-.social-proof strong {
-  color: #baf2d8;
-  font-weight: 700;
+  margin-bottom: 1rem;
 }
 
 .avatars {
@@ -486,7 +482,7 @@ h1 em::after {
   font-size: 0.52rem;
   font-weight: 700;
   color: #baf2d8;
-  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, z-index 0s;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s;
   cursor: default;
   position: relative;
 }
@@ -497,18 +493,47 @@ h1 em::after {
   z-index: 10;
 }
 
-.proof-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+.btn-reviews {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(186,242,216,0.55);
+  text-decoration: none;
+  border: 1px solid rgba(186,242,216,0.1);
+  padding: 9px 18px;
+  border-radius: 100px;
+  transition:
+    color 0.25s,
+    border-color 0.25s,
+    background 0.25s,
+    transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.btn-reviews:hover {
+  color: #baf2d8;
+  border-color: rgba(186,242,216,0.3);
+  background: rgba(186,242,216,0.05);
+  transform: translateY(-2px);
 }
 
-.proof-stars {
-  display: block;
-  font-size: 0.55rem;
-  color: rgba(186,242,216,0.5);
-  letter-spacing: 2px;
+.reviews-icon {
+  font-size: 0.7rem;
+  color: rgba(186,242,216,0.4);
+  transition: color 0.25s;
+}
+.btn-reviews:hover .reviews-icon {
+  color: #baf2d8;
+}
+
+.reviews-arrow {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s;
+}
+.btn-reviews:hover .reviews-arrow {
+  transform: translateX(4px);
+  opacity: 1;
 }
 
 /* ─── Scroll indicator ─── */
@@ -561,7 +586,6 @@ h1 em::after {
 @media (max-width: 768px) {
   #hero { padding: 120px 5% 80px; }
   .orb { display: none; }
-  .proof-stars { display: none; }
   .scroll-hint { bottom: 24px; }
 }
 </style>

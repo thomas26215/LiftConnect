@@ -30,8 +30,8 @@
 
       <!-- Subtitle -->
       <p class="sub" ref="subRef">
-        Télécharge LiftConnect gratuitement et rejoins des milliers d'athlètes
-        qui transforment leur entraînement chaque jour.
+        Télécharge LiftConnect gratuitement et sois parmi les premiers athlètes
+        à transformer ton entraînement dès aujourd'hui.
       </p>
 
       <!-- Store buttons -->
@@ -134,10 +134,10 @@ const stores = [
 ]
 
 const stats = [
-  { value: '50K+', label: 'Athlètes actifs' },
-  { value: '4.9',  label: 'Note App Store' },
-  { value: '2M+',  label: 'Séances loggées' },
-  { value: '100%', label: 'Gratuit' },
+  { value: '🆕',   label: 'Tout juste lancé' },
+  { value: '0€',   label: 'Totalement gratuit' },
+  { value: '∞',    label: 'Séances illimitées' },
+  { value: '100%', label: 'Fait avec ❤️' },
 ]
 
 onMounted(() => {
