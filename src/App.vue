@@ -2,8 +2,8 @@
   <AppNavBar
   logo-href="/"
   :links="navLinks"
-  :back-link="isLegalPage ? { href: '/', label: 'Retour à l\'accueil' } : null"
-  :show-login="!isAuthPage"
+  :back-link="null"
+  :show-login="!isAuthPage && !isCommunityPage"
   :login-href="r('login')"
   :show-cta="isLandingPage"
   cta-label="Télécharger"
@@ -22,39 +22,37 @@ const route  = useRoute()
 const router = useRouter()
 
 // Noms des routes considérées comme "pages légales"
-const LEGAL_ROUTE_NAMES = ['privacy', 'legal', 'delete-account']
-const LANGING_ROUTE_NAMES = ['home']
-const AUTH_ROUTE_NAMES = ['login', 'register']
+const LEGAL_ROUTE_NAMES    = ['privacy', 'legal', 'delete-account', 'subscription', 'ai']
+const LANDING_ROUTE_NAMES  = ['home']
+const AUTH_ROUTE_NAMES     = ['login', 'register', 'forgot-password']
+const COMMUNITY_ROUTE_NAMES = ['ambassador', 'feedback']
 
-const isLegalPage = computed(() => LEGAL_ROUTE_NAMES.includes(route.name))
-const isLandingPage = computed(() => LANGING_ROUTE_NAMES.includes(route.name))
-const isAuthPage = computed(() => AUTH_ROUTE_NAMES.includes(route.name))
+const isLegalPage     = computed(() => LEGAL_ROUTE_NAMES.includes(route.name))
+const isLandingPage   = computed(() => LANDING_ROUTE_NAMES.includes(route.name))
+const isAuthPage      = computed(() => AUTH_ROUTE_NAMES.includes(route.name))
+const isCommunityPage = computed(() => COMMUNITY_ROUTE_NAMES.includes(route.name))
 
-// Résout un nom de route en chemin string pour AppNavBar
 function r(name) {
   return router.resolve({ name }).path
 }
 
 const navLinks = computed(() => {
-  if (isLegalPage.value) {
-    return [
-      { href: r('privacy'),        label: 'Confidentialité' },
-      { href: r('legal'),          label: 'Mentions légales' },
-      { href: r('delete-account'), label: 'Supprimer mon compte' },
-    ]
-  }
-  if (isLandingPage.value) {
-      return [
-        { href: '#features',  label: 'Fonctionnalités' },
-        { href: '#download',  label: 'Télécharger' },
-      ]
-    }
-  if (isAuthPage.value) {
-      return [
-      { href: r('login'),           label: 'Se connecter' },
-      { href: r('register'),        label: 'Créer un compte' },
-      ]
-    }
+  if (isLegalPage.value) return [
+    { href: r('privacy'),      label: 'Confidentialité' },
+    { href: r('legal'),        label: 'Mentions légales' },
+    { href: r('subscription'), label: 'Abonnement' },
+    { href: r('ai'),           label: 'Fonctionnalités IA' },
+  ]
+  if (isLandingPage.value) return [
+    { href: '#features', label: 'Fonctionnalités' },
+    { href: '#download', label: 'Télécharger' },
+  ]
+  if (isAuthPage.value) return []
+  if (isCommunityPage.value) return [
+    { href: r('feedback'),   label: 'Avis' },
+    { href: r('ambassador'), label: 'Ambassadeurs' },
+  ]
+  return []
 })
 </script>
 

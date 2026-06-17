@@ -5,6 +5,8 @@ import LandingPage      from '../pages/landingPage/index.vue'
 import PrivacyPage      from '../pages/legal/privacy.vue'
 import LegalPage        from '../pages/legal/legal.vue'
 import DeleteAccountPage from '../pages/legal/delete-account.vue'
+import SubscriptionPage from '../pages/legal/subscription.vue'
+import AiPage from '../pages/legal/ai.vue'
 import LoginPage        from '../pages/auth/login.vue'
 import RegisterPage     from '../pages/auth/register.vue'
 import ForgotPasswordPage from '../pages/auth/forgetPassword.vue'
@@ -18,6 +20,8 @@ const router = createRouter({
     { path: '/privacy',        name: 'privacy',        component: PrivacyPage },
     { path: '/legal',          name: 'legal',          component: LegalPage },
     { path: '/delete-account', name: 'delete-account', component: DeleteAccountPage },
+    { path: '/abonnement',     name: 'subscription',   component: SubscriptionPage },
+    { path: '/ia',             name: 'ai',             component: AiPage },
     { path: '/auth/login',     name: 'login',          component: LoginPage,    meta: { guestOnly: true } },
     { path: '/auth/register',  name: 'register',       component: RegisterPage, meta: { guestOnly: true } },
     { path: '/auth/forgot-password', name: 'forgot-password', component: ForgotPasswordPage, meta: { guestOnly: true } },

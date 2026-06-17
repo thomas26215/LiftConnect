@@ -304,7 +304,7 @@ onMounted(() => {
 /* ─── Hero ─── */
 .hero {
   position: relative; z-index: 1;
-  padding: 64px 5% 72px;
+  padding: 110px 5% 72px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
   background: linear-gradient(180deg, rgba(255,80,80,0.03) 0%, transparent 100%);
 }

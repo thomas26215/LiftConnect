@@ -7,6 +7,7 @@
         { href: '/privacy',        label: 'Confidentialité' },
         { href: '/legal',          label: 'Mentions légales' },
         { href: '/delete-account', label: 'Supprimer mon compte' },
+        { href: '/abonnement-ia', label: 'Abonnement IA' },
       ]"
       :back-link="{ href: '/', label: 'Retour à l\'accueil' }"
       :show-login="false"

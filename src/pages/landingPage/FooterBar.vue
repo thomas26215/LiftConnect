@@ -34,8 +34,9 @@
           <div v-for="col in navCols" :key="col.title" class="nav-col">
             <h4>{{ col.title }}</h4>
             <ul>
-              <li v-for="link in col.links" :key="link">
-                <a href="#">{{ link }}</a>
+              <li v-for="link in col.links" :key="link.label">
+                <a v-if="link.external" :href="link.href" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+                <RouterLink v-else :to="link.href">{{ link.label }}</RouterLink>
               </li>
             </ul>
           </div>
@@ -61,9 +62,10 @@
           <span class="made-with">Fait avec <span class="heart">♥</span> pour les athlètes</span>
         </div>
         <div class="legal">
-          <a href="#">Confidentialité</a>
-          <a href="#">CGU</a>
-          <a href="#">Mentions légales</a>
+          <RouterLink to="/privacy">Confidentialité</RouterLink>
+          <RouterLink to="/legal">Mentions légales</RouterLink>
+          <RouterLink to="/abonnement">Abonnement</RouterLink>
+          <RouterLink to="/delete-account">Supprimer mon compte</RouterLink>
         </div>
       </div>
 
@@ -73,6 +75,7 @@
 
 <script setup>
 import { ref, onMounted, defineComponent, h } from 'vue'
+import { RouterLink } from 'vue-router'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -106,16 +109,32 @@ const socials = [
 
 const navCols = [
   {
-    title: 'Produit',
-    links: ['Fonctionnalités', 'Télécharger', 'Tarifs', 'Changelog'],
+    title: 'Application',
+    links: [
+      { label: 'Fonctionnalités', href: '/#features' },
+      { label: 'Télécharger',     href: '/#download' },
+      { label: 'Ambassadeurs',    href: '/ambassadeur' },
+      { label: 'Avis',            href: '/feedback' },
+    ],
   },
   {
-    title: 'Communauté',
-    links: ['Groupes', 'Challenges', 'Ambassadeurs', 'Blog'],
+    title: 'Légal',
+    links: [
+      { label: 'Confidentialité',    href: '/privacy' },
+      { label: 'Mentions légales',   href: '/legal' },
+      { label: 'Abonnement',            href: '/abonnement' },
+      { label: 'Fonctionnalités IA',   href: '/ia' },
+      { label: 'Supprimer mon compte', href: '/delete-account' },
+    ],
   },
   {
-    title: 'Entreprise',
-    links: ['À propos', 'Contact', 'Presse', 'Carrières'],
+    title: 'Nous suivre',
+    links: [
+      { label: 'Instagram', href: 'https://www.instagram.com/liftconnectmusculation/', external: true },
+      { label: 'Discord',   href: 'https://discord.gg/liftconnect', external: true },
+      { label: 'YouTube',   href: 'https://www.youtube.com/liftconnectapp', external: true },
+      { label: 'Contact',   href: 'mailto:liftconnectmuscu@gmail.com', external: true },
+    ],
   },
 ]
 

@@ -9,22 +9,18 @@
       <div class="hero-inner">
         <div class="eyebrow">
           <span class="eyebrow-dot"><span class="dot-core"></span><span class="dot-ring"></span></span>
-          Document légal
+          Abonnement
         </div>
-        <h1>Mentions<br><em>légales</em></h1>
-        <p class="hero-desc">Conformément aux dispositions de la loi n° 2004-575 du 21 juin 2004 pour la Confiance en l'Économie Numérique, vous trouverez ci-dessous les informations légales relatives à l'application et aux services LiftConnect, y compris les règles encadrant notre espace communautaire.</p>
+        <h1>Conditions<br><em>d'abonnement</em></h1>
+        <p class="hero-desc">Informations importantes relatives à l'abonnement LiftConnect : plateformes, résiliation, changement de formule, tokens et remboursements.</p>
         <div class="hero-meta">
           <span class="meta-chip">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Mise à jour : 15 décembre 2025
-          </span>
-          <span class="meta-chip">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            France — Loi LCEN
+            Mise à jour : 17 juin 2026
           </span>
           <span class="meta-chip">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            9 sections
+            8 sections
           </span>
         </div>
       </div>
@@ -51,10 +47,10 @@
           </nav>
         </div>
         <div class="sidebar-report">
-          <p class="sidebar-report-label">Signaler un contenu</p>
-          <a href="mailto:liftconnectmuscu@gmail.com?subject=Signalement%20contenu" class="sidebar-report-btn">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-            Signaler par e-mail
+          <p class="sidebar-report-label">Support abonnement</p>
+          <a href="mailto:liftconnectmuscu@gmail.com?subject=Question%20abonnement%20IA" class="sidebar-report-btn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Nous contacter
           </a>
         </div>
       </aside>
@@ -80,12 +76,6 @@
                   <span>{{ item }}</span>
                 </li>
               </ul>
-              <ul v-if="block.prohibited" class="prohibited-list">
-                <li v-for="item in block.prohibited" :key="item">
-                  <span class="li-cross">✕</span>
-                  <span>{{ item }}</span>
-                </li>
-              </ul>
               <div v-if="block.info" class="info-block">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span>{{ block.info }}</span>
@@ -107,10 +97,10 @@
             </svg>
           </div>
           <div class="cta-body">
-            <p class="cta-title">Une question juridique ou un signalement ?</p>
+            <p class="cta-title">Une question sur votre abonnement ?</p>
             <p class="cta-sub">Notre équipe vous répond sous 48h ouvrées.</p>
           </div>
-          <a href="mailto:liftconnectmuscu@gmail.com" class="cta-btn">
+          <a href="mailto:liftconnectmuscu@gmail.com?subject=Question%20abonnement%20IA" class="cta-btn">
             Nous contacter <span>↗</span>
           </a>
         </div>
@@ -130,153 +120,102 @@ import gsap from 'gsap'
 
 const heroRef       = ref(null)
 const contentRef    = ref(null)
-const activeSection = ref('editeur')
+const activeSection = ref('plateformes')
 let observer = null
 
 const sections = [
   {
-    id: 'editeur', num: '01', title: "Éditeur de l'application",
+    id: 'plateformes', num: '01', title: 'Plateformes disponibles',
     content: [
-      { sub: 'Identité' },
+      { text: "LiftConnect propose plusieurs abonnements indépendants selon les services disponibles. Actuellement, un seul service est disponible par abonnement :" },
       { list: [
-        "Nom de l'application : LiftConnect",
-        "Statut : Application développée à titre personnel",
-        "Responsable de publication : Équipe LiftConnect",
-        "Adresse e-mail : liftconnectmuscu@gmail.com",
+        'Abonnement IA — accès aux fonctionnalités d\'intelligence artificielle',
       ]},
-      { info: "LiftConnect est une application indépendante. Pour toute question relative à l'éditeur, contactez-nous directement par e-mail." },
-    ],
-  },
-  {
-    id: 'hebergement', num: '02', title: 'Hébergement',
-    content: [
-      { text: "L'application LiftConnect et ses services associés sont hébergés par des prestataires tiers spécialisés dans l'infrastructure cloud. Les serveurs sont situés dans l'Union Européenne, garantissant la conformité avec le RGPD." },
-      { sub: "Prestataires d'infrastructure" },
+      { info: "D'autres abonnements seront disponibles à l'avenir (ex : synchronisation des données). Chaque service dispose de son propre abonnement, géré indépendamment." },
+      { sub: 'Plateformes acceptées' },
       { list: [
-        'Services cloud : infrastructure certifiée ISO 27001',
-        'Localisation des données : Union Européenne',
-        'Disponibilité cible : 99,9 % (hors maintenance planifiée)',
+        'Android via Google Play',
+        'iOS via l\'App Store',
+        'Web via Stripe',
       ]},
     ],
   },
   {
-    id: 'contenu-utilisateur', num: '03', title: 'Contenus générés par les utilisateurs',
-    highlight: true,
-    badge: { label: 'Communauté', variant: 'community' },
+    id: 'unicite', num: '02', title: "Unicité de l'abonnement par service",
     content: [
-      { text: "LiftConnect propose un espace communautaire au sein duquel les utilisateurs peuvent librement publier des contenus : conseils d'entraînement, partages de performance, programmes, photos, commentaires et messages. LiftConnect agit en qualité d'hébergeur au sens de la loi LCEN." },
-      { sub: 'Responsabilité des utilisateurs' },
-      { text: "Chaque utilisateur est seul responsable des contenus qu'il publie. En publiant sur LiftConnect, l'utilisateur garantit détenir les droits nécessaires sur les contenus partagés et s'engage à respecter les présentes règles ainsi que la législation en vigueur." },
-      { sub: 'Contenus expressément interdits' },
-      { prohibited: [
-        "Conseils médicaux, nutritionnels ou sportifs présentés comme des prescriptions professionnelles sans qualification avérée",
-        "Promotion ou incitation à l'usage de substances dopantes, stéroïdes, EPO ou produits illicites",
-        "Contenus à caractère haineux, discriminatoire, raciste, sexiste ou homophobe",
-        "Harcèlement, intimidation, menaces ou cyberbullying envers d'autres membres",
-        "Contenus sexuellement explicites ou à caractère pornographique",
-        "Atteinte à la vie privée d'autrui (photos sans consentement, données personnelles de tiers)",
-        "Publicité, spam ou démarchage commercial non autorisé",
-        "Contenus encourageant des pratiques dangereuses pouvant causer des blessures graves",
-        "Propos incitant à des troubles alimentaires (anorexie, boulimie) ou à l'automutilation",
-        "Usurpation d'identité d'un autre utilisateur ou d'une personnalité",
-      ]},
-      { warn: "La publication de faux conseils médicaux ou sportifs présentés comme professionnels est susceptible d'engager la responsabilité pénale de leur auteur." },
+      { text: "Un seul abonnement actif est autorisé par compte et par service, quelle que soit la plateforme. Il n'est pas possible de souscrire simultanément à plusieurs abonnements pour un même service sur des plateformes différentes." },
+      { info: "En revanche, il est tout à fait possible de souscrire à plusieurs services distincts en parallèle (ex : abonnement IA + abonnement synchronisation), chacun étant géré indépendamment." },
     ],
   },
   {
-    id: 'moderation', num: '04', title: 'Modération et signalements',
+    id: 'changement-plateforme', num: '03', title: 'Changement de plateforme',
     highlight: true,
     badge: { label: 'Important', variant: 'warn' },
     content: [
-      { text: "LiftConnect met en place des mécanismes de modération pour maintenir un environnement sain et respectueux. La modération est assurée de manière réactive, sur signalement des utilisateurs, conformément au régime de l'hébergeur prévu par la loi LCEN." },
-      { sub: 'Comment signaler un contenu' },
+      { text: "Ces règles s'appliquent par service. Si vous souhaitez passer d'une plateforme à une autre pour un service donné (par exemple de Google Play à l'App Store pour l'abonnement IA) :" },
       { list: [
-        "Depuis l'application : utiliser le bouton « Signaler » disponible sur chaque publication, commentaire ou profil",
-        "Par e-mail : liftconnectmuscu@gmail.com avec l'objet « Signalement contenu » et une description du problème",
-        "Tout signalement est traité dans un délai maximum de 72 heures ouvrées",
+        "Résiliez votre abonnement actuel depuis la plateforme d'origine.",
+        "Attendez la fin de la période en cours (date d'expiration de votre abonnement).",
+        "Souscrivez un nouvel abonnement sur la plateforme de votre choix.",
       ]},
-      { sub: 'Traitement des signalements' },
-      { text: "À réception d'un signalement, LiftConnect procède à une analyse du contenu concerné. Les actions possibles sont : avertissement à l'auteur, suppression du contenu, suspension temporaire du compte, bannissement définitif, et le cas échéant, transmission aux autorités compétentes." },
-      { sub: 'Sanctions graduées' },
-      { list: [
-        "Niveau 1 — Avertissement : rappel des règles pour une première infraction mineure",
-        "Niveau 2 — Suspension temporaire : 7 à 30 jours selon la gravité",
-        "Niveau 3 — Bannissement définitif : pour les infractions graves ou récidives",
-        "Niveau 4 — Signalement aux autorités : pour tout contenu illicite (haine, CSAM, menaces graves)",
-      ]},
-      { info: "LiftConnect se réserve le droit de supprimer sans préavis tout contenu manifestement illicite, et de suspendre ou bannir tout compte en cas de violation grave des présentes règles." },
+      { warn: "Toute tentative de souscription sur une autre plateforme avant l'expiration de l'abonnement en cours sera bloquée. Le paiement éventuellement effectué ne pourra pas être remboursé." },
     ],
   },
   {
-    id: 'responsabilite-contenu', num: '05', title: "Responsabilité de l'hébergeur",
+    id: 'resiliation', num: '04', title: 'Résiliation',
     content: [
-      { text: "Conformément à l'article 6-I-2 de la loi n° 2004-575 du 21 juin 2004 (LCEN), LiftConnect, en sa qualité d'hébergeur, n'est pas soumise à une obligation générale de surveillance des contenus publiés par les utilisateurs." },
-      { text: "La responsabilité de LiftConnect ne peut être engagée du fait des contenus publiés par les utilisateurs qu'à la condition qu'elle ait eu connaissance du caractère manifestement illicite de ces contenus et qu'elle n'ait pas agi promptement pour les retirer ou en rendre l'accès impossible." },
-      { sub: 'Limites de responsabilité spécifiques à la communauté' },
       { list: [
-        "LiftConnect ne valide pas et ne cautionne pas les conseils sportifs, nutritionnels ou médicaux publiés par les utilisateurs",
-        "Les performances et résultats partagés par les membres sont déclaratifs et non vérifiés",
-        "LiftConnect n'est pas responsable des dommages résultant de l'application de conseils publiés par des tiers sur la plateforme",
-        "Les liens et références externes partagés par les utilisateurs n'engagent pas la responsabilité de LiftConnect",
+        "La résiliation d'un abonnement prend effet à la fin de la période en cours. Vous conservez l'accès aux fonctionnalités IA et à vos tokens restants jusqu'à cette date.",
+        "Aucun remboursement au prorata n'est effectué en cas de résiliation anticipée.",
+        "Après expiration, vos tokens non consommés issus de l'abonnement restent disponibles et utilisables.",
+        "Tout nouvel abonnement, y compris sur la même plateforme, ne pourra être souscrit qu'après l'expiration complète de la période en cours.",
       ]},
-      { warn: "Consultez toujours un professionnel de santé qualifié avant de modifier votre programme d'entraînement ou d'alimentation, quelle que soit la source du conseil." },
     ],
   },
   {
-    id: 'propriete', num: '06', title: 'Propriété intellectuelle',
+    id: 'changement-formule', num: '05', title: 'Changement de formule',
     content: [
-      { text: "L'ensemble des éléments constituant l'application LiftConnect — code source, graphismes, logos, icônes, textes, sons et animations — est protégé par le droit d'auteur." },
-      { sub: 'Contenus publiés par les utilisateurs' },
-      { text: "L'utilisateur conserve la propriété intellectuelle des contenus originaux qu'il publie sur LiftConnect. En publiant, il accorde à LiftConnect une licence non exclusive, mondiale et gratuite d'utilisation de ces contenus aux fins du fonctionnement et de la promotion de l'application." },
       { list: [
-        "Logo et identité visuelle LiftConnect",
-        "Code source et algorithmes de recommandation IA",
-        "Interface utilisateur et éléments de design originaux",
-        "Contenus éditoriaux produits par l'équipe LiftConnect",
+        "Un changement de formule sur la même plateforme prend effet au prochain cycle de facturation.",
+        "Vous conservez votre formule actuelle et vos tokens jusqu'à la date de renouvellement.",
       ]},
-      { info: "Les marques Apple App Store et Google Play appartiennent à leurs propriétaires respectifs." },
+      { info: "Pour connaître les différences entre les formules (modèles IA, multiplicateurs de tokens), consultez la page Fonctionnalités IA." },
     ],
   },
   {
-    id: 'responsabilite', num: '07', title: 'Limitation de responsabilité générale',
+    id: 'tokens', num: '06', title: 'Tokens supplémentaires (recharges)',
     content: [
-      { sub: 'Exclusions de responsabilité' },
+      { sub: 'Conditions de disponibilité' },
+      { text: "Les recharges de tokens sont disponibles dans les cas suivants :" },
       { list: [
-        "Interruptions ou indisponibilités temporaires pour maintenance ou incident technique",
-        "Inexactitudes dans les informations disponibles au sein de l'application",
-        "Blessures ou préjudices corporels liés à l'exécution d'exercices physiques",
-        "Pertes de données dues à des défaillances techniques indépendantes de notre volonté",
-        "Dommages résultant de l'application de conseils publiés par d'autres utilisateurs",
+        "Votre abonnement est actif.",
+        "Votre abonnement a été résilié, mais la date actuelle est antérieure à la date de fin de votre période en cours (vous conservez l'accès jusqu'à expiration).",
       ]},
-      { sub: 'Avertissement santé' },
-      { text: "Les recommandations de LiftConnect (y compris celles générées par l'IA) sont fournies à titre indicatif et ne constituent pas un avis médical. Consultez un professionnel de santé avant de commencer tout programme sportif." },
+      { sub: 'À noter' },
+      { list: [
+        "Les tokens achetés sont permanents et s'accumulent avec votre solde existant.",
+        "Les tokens supplémentaires ne sont pas remboursables.",
+        "En cas d'expiration définitive de l'abonnement, les tokens bonus sont gelés et redeviennent utilisables dès la souscription d'un nouvel abonnement actif.",
+      ]},
     ],
   },
   {
-    id: 'donnees', num: '08', title: 'Données personnelles',
+    id: 'remboursements', num: '07', title: 'Remboursements',
     content: [
-      { text: "Le traitement des données personnelles est encadré par notre Politique de Confidentialité, conforme au RGPD (Règlement UE 2016/679). Dans le contexte communautaire, certaines données publiées volontairement (profil, publications, performances) sont visibles par les autres membres." },
+      { text: "Les abonnements sont soumis aux politiques de remboursement de la plateforme concernée :" },
       { list: [
-        "Droit d'accès, rectification et effacement de vos données",
-        "Droit à la portabilité et d'opposition au traitement",
-        "Contrôle de la visibilité de votre profil et de vos publications",
+        "Google Play : politique de remboursement Google Play",
+        "App Store : politique de remboursement Apple",
+        "Stripe : contactez notre support",
       ]},
-      { info: "Pour exercer vos droits : liftconnectmuscu@gmail.com. Réclamations possibles auprès de la CNIL (cnil.fr)." },
+      { info: "LiftConnect ne peut pas effectuer de remboursement en dehors des procédures propres à chaque plateforme." },
     ],
   },
   {
-    id: 'droit', num: '09', title: 'Droit applicable et litiges',
+    id: 'support', num: '08', title: 'Support',
     content: [
-      { text: "Les présentes mentions légales sont régies par le droit français. En cas de litige, les parties s'engagent à rechercher une solution amiable avant tout recours judiciaire." },
-      { sub: 'Textes applicables' },
-      { list: [
-        "Loi n° 2004-575 du 21 juin 2004 pour la Confiance en l'Économie Numérique (LCEN)",
-        "Règlement Général sur la Protection des Données — RGPD (UE) 2016/679",
-        "Code civil français — articles relatifs à la responsabilité civile",
-        "Règlement DSA (Digital Services Act) — Règlement (UE) 2022/2065",
-      ]},
-      { text: "À défaut de résolution amiable, tout litige sera soumis à la compétence exclusive des juridictions françaises." },
-      { info: "Ces mentions légales sont susceptibles d'être modifiées à tout moment. La version en vigueur est celle publiée dans l'application." },
+      { text: "Pour toute question relative à votre abonnement, contactez-nous à l'adresse suivante :" },
+      { info: "liftconnectmuscu@gmail.com — objet : « Question abonnement »" },
     ],
   },
 ]
@@ -402,33 +341,18 @@ h1 em::after {
 .toc-title-text { font-size: 0.73rem; font-weight: 600; color: rgba(255,255,255,0.4); line-height: 1.3; }
 .toc-item.active .toc-title-text { color: rgba(186,242,216,0.85); }
 
-.sidebar-links {
-  background: rgba(13,28,58,0.4); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px; padding: 14px 16px;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.sidebar-links-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 2px; }
-.sidebar-doc-link {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 0.72rem; font-weight: 600; text-decoration: none;
-  color: rgba(186,242,216,0.55); transition: color 0.2s;
-}
-.sidebar-doc-link:hover { color: rgba(186,242,216,0.9); }
-.sidebar-doc-link--danger { color: rgba(255,100,100,0.45); }
-.sidebar-doc-link--danger:hover { color: rgba(255,100,100,0.8); }
-
 .sidebar-report {
-  background: rgba(255,160,50,0.04); border: 1px solid rgba(255,160,50,0.12);
+  background: rgba(186,242,216,0.04); border: 1px solid rgba(186,242,216,0.1);
   border-radius: 12px; padding: 14px 16px;
   display: flex; flex-direction: column; gap: 8px;
 }
-.sidebar-report-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,160,50,0.5); margin-bottom: 2px; }
+.sidebar-report-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(186,242,216,0.45); margin-bottom: 2px; }
 .sidebar-report-btn {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: 0.72rem; font-weight: 600; text-decoration: none;
-  color: rgba(255,160,50,0.65); transition: color 0.2s;
+  color: rgba(186,242,216,0.6); transition: color 0.2s;
 }
-.sidebar-report-btn:hover { color: rgba(255,160,50,0.95); }
+.sidebar-report-btn:hover { color: rgba(186,242,216,0.95); }
 
 /* ─── Sections column ─── */
 .sections-col {
@@ -465,7 +389,6 @@ h2 { font-size: 0.98rem; font-weight: 700; color: rgba(255,255,255,0.95); letter
   font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   padding: 3px 9px; border-radius: 100px; flex-shrink: 0;
 }
-.card-badge--community { color: rgba(186,242,216,0.8); background: rgba(186,242,216,0.08); border: 1px solid rgba(186,242,216,0.15); }
 .card-badge--warn { color: rgba(255,160,50,0.85); background: rgba(255,160,50,0.08); border: 1px solid rgba(255,160,50,0.15); }
 
 .card-content { padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; }
@@ -477,11 +400,6 @@ p { font-size: 0.86rem; font-weight: 600; color: rgba(255,255,255,0.72); line-he
 ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 7px; }
 li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.7); line-height: 1.65; }
 .li-dot { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: rgba(186,242,216,0.55); margin-top: 7px; }
-
-/* Liste interdits */
-.prohibited-list { background: rgba(255,80,80,0.03); border: 1px solid rgba(255,80,80,0.08); border-radius: 12px; padding: 14px 16px; gap: 9px; }
-.prohibited-list li { color: rgba(255,255,255,0.65); }
-.li-cross { flex-shrink: 0; font-size: 0.62rem; font-weight: 800; color: rgba(255,100,100,0.6); margin-top: 4px; width: 14px; text-align: center; }
 
 /* Info block */
 .info-block {
